@@ -1,4 +1,89 @@
-<!DOCTYPE html>
+<!D<script type="module">
+    // Importaciones de Firebase SDK (versión 12.7.0 solicitada)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-analytics.js";
+
+
+    // 🔴 TUS CREDENCIALES REALES
+    const firebaseConfig = {
+        apiKey: "AIzaSyDFqK4T7TuIx-uUgJeFmx5Km7G01FwizpA",
+        authDomain: "naproject-9c957.firebaseapp.com",
+        projectId: "naproject-9c957",
+        storageBucket: "naproject-9c957.firebasestorage.app",
+        messagingSenderId: "384570292100",
+        appId: "1:384570292100:web:1e074c0706fa8e0e488fd1",
+        measurementId: "G-NS6BNHSSYX"
+    };
+
+    // Inicialización
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app); // Inicializamos Firestore
+    const analytics = getAnalytics(app); // Inicializamos Analytics
+    const provider = new GoogleAuthProvider();
+
+    const loginScreen = document.getElementById('login-screen');
+    const loader = document.getElementById('loader');
+
+    function startRedirect() {
+        loginScreen.classList.add('hidden');
+        loader.style.display = 'flex';
+        setTimeout(() => {
+            window.location.href = "landing.html";
+        }, 800);
+    }
+
+    // ⭐ FUNCIÓN DE LOGIN Y REGISTRO EN FIRESTORE
+    window.loginWithGoogle = async () => {
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+
+            // 1. Crear el objeto de usuario (Regla de Oro: guardamos una copia)
+            const userData = {
+                uid: user.uid,
+                displayName: user.displayName,
+                email: user.email,
+                photoURL: user.photoURL,
+                // Motor de Estatus: Inicialmente no premium
+                premium: false,
+                lastPaymentRef: null,
+                createdAt: new Date()
+            };
+
+            // 2. Guardar/Actualizar el documento en Firestore: /usuarios/${uid}
+            // { merge: true } asegura que solo se actualicen los campos si ya existen, 
+            // pero que se cree si es nuevo, sin sobrescribir datos valiosos.
+            await setDoc(doc(db, "usuarios", user.uid), userData, { merge: true });
+
+            startRedirect();
+        } catch (error) { 
+            console.error("Error login:", error.code, error.message); 
+            // Manejo de errores 
+            if (error.code === 'auth/popup-closed-by-user') {
+                // Puedes dar un mensaje amigable al usuario
+            }
+        }
+    };
+
+    // Modo Invitado se mantiene igual
+    window.enterAsGuest = () => {
+        sessionStorage.setItem('userMode', 'guest');
+        startRedirect();
+    };
+
+    // Si ya está logueado, redirigir directo
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            startRedirect();
+        } else {
+            // Mostrar la pantalla de login si no hay sesión
+            loginScreen.classList.remove('hidden');
+        }
+    });
+</script>OCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -174,4 +259,5 @@
     </div>
 
 </body>
+
 </html>
