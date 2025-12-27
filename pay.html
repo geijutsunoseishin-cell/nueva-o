@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NuevañoPay | Bento Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Suavizado de transiciones globales */
+        * { transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
+
+        .bento-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 2.2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .text-nuevano {
+            background: linear-gradient(135deg, #a855f7, #ec4899, #f43f5e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Animación Bento Entrada */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .copy-toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 900;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(168, 85, 247, 0.3);
+        }
+
+        /* QR SuicheB */
+        .qr-box {
+            background: rgba(255,255,255,0.04);
+            border: 2px dashed rgba(168, 85, 247, 0.3);
+            border-radius: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- SISTEMA DE BOTONES CON HALO GRADIENT --- */
+        .nav-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+
+        .nav-blur-bg {
+            background: rgba(15, 15, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px 24px;
+            border-radius: 50px;
+            display: flex;
+            gap: 50px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .nav-btn {
+            position: relative;
+            width: 54px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .nav-btn i {
+            font-size: 24px;
+            color: #555;
+            transition: all 0.3s ease;
+        }
+
+        /* El Halo de Gradiente Explosivo */
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            background: linear-gradient(135deg, #a855f7, #ec4899, #f43f5e);
+            border-radius: 50%;
+            opacity: 0;
+            filter: blur(20px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: scale(0.4);
+            z-index: -1;
+        }
+
+        /* Hover y Active States con halo expandido */
+        .nav-btn:hover::before, .nav-btn:active::before {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+
+        .nav-btn:hover i {
+            color: #fff;
+            transform: scale(1.1);
+        }
+
+        /* Gradiente específico para Instagram */
+        .insta-btn::before {
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+        }
+
+    </style>
+</head>
+<body class="p-5">
+
+    <div id="toast" class="copy-toast uppercase tracking-widest italic">Copiado con éxito</div>
+
+    <div class="max-w-md mx-auto pt-4 pb-36">
+        
+        <!-- Header Principal -->
+        <header class="flex justify-between items-center mb-8 px-2">
+            <div>
+                <h1 class="text-3xl font-black tracking-tighter uppercase italic text-nuevano">NuevañoPay</h1>
+                <p class="text-[10px] text-zinc-600 font-bold uppercase tracking-[0.2em]">Bóveda Pública • Zaher Edition</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-nuevano">
+                <i class="fa-solid fa-fire-burner text-xl"></i>
+            </div>
+        </header>
+
+        <!-- BENTO GRID SYSTEM -->
+        <div class="bento-grid">
+            
+            <!-- TARJETA 1: ESTADO -->
+            <div class="bento-item col-span-2 p-7 bg-white/[0.01]">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h2 class="text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Estado del Sistema</h2>
+                        <div class="flex items-center gap-2">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-500 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+                            </span>
+                            <span class="text-lg font-bold tracking-tight italic">Validación Automática Activa</span>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-microchip text-zinc-800 text-3xl"></i>
+                </div>
+            </div>
+
+            <!-- TARJETA 2: BINANCE -->
+            <div class="bento-item col-span-2 p-6 border-purple-500/10">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400">
+                            <i class="fa-brands fa-bitcoin text-lg"></i>
+                        </div>
+                        <span class="font-black text-[11px] uppercase tracking-widest text-purple-200">Binance Pay (USDT)</span>
+                    </div>
+                </div>
+                <div onclick="copyText('zahermachadomd@gmail.com')" class="bg-black/60 border border-white/5 p-4 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 group">
+                    <code class="text-[11px] text-purple-400 font-bold">zahermachadomd@gmail.com</code>
+                    <i class="fa-solid fa-copy text-zinc-600 text-xs group-hover:text-purple-400"></i>
+                </div>
+            </div>
+
+            <!-- TARJETA 3: PAGO MÓVIL -->
+            <div class="bento-item col-span-2 p-6 border-pink-500/10">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-pink-500/10 flex items-center justify-center text-pink-400">
+                            <i class="fa-solid fa-building-columns text-sm"></i>
+                        </div>
+                        <span class="font-black text-[11px] uppercase tracking-widest text-pink-200">Pago Móvil (BDV)</span>
+                    </div>
+                </div>
+                
+                <div onclick="copyText('30457141 0102 04127762812')" class="bg-black/40 border border-white/5 p-5 rounded-2xl cursor-pointer active:scale-[0.98] relative group">
+                    <p class="text-[8px] text-zinc-500 uppercase font-black mb-1">C.I. V-30.457.141 • BANCO 0102</p>
+                    <p class="text-xl font-black tracking-tighter mb-1 text-white">0412 776 28 12</p>
+                    <p class="text-[10px] text-pink-400 font-black uppercase">ZAHER MACHADO</p>
+                    <i class="fa-solid fa-copy absolute top-5 right-5 text-zinc-600 group-hover:text-pink-400"></i>
+                </div>
+            </div>
+
+            <!-- TARJETA 4: QR SUICHEB -->
+            <div class="bento-item p-6 flex flex-col items-center justify-center aspect-square text-center">
+                <h3 class="text-[9px] font-black uppercase text-zinc-500 mb-4">SuicheB QR</h3>
+                <div class="qr-box w-full aspect-square group">
+                    <i class="fa-solid fa-qrcode text-zinc-800 text-4xl group-hover:text-pink-500"></i>
+                </div>
+            </div>
+
+            <!-- TARJETA 5: SOPORTE -->
+            <div class="bento-item p-6 flex flex-col justify-between aspect-square border-red-500/10">
+                <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-400">
+                    <i class="fa-solid fa-headset text-xs"></i>
+                </div>
+                <div>
+                    <h3 class="text-[10px] font-black uppercase text-red-400 mb-1">Soporte</h3>
+                    <p class="text-[9px] text-zinc-500 leading-tight">Contacto Directo</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Barra de Navegación Dual con Halo -->
+    <div class="nav-container">
+        <div class="nav-blur-bg">
+            <!-- Botón 1: Instagram con su propio gradiente -->
+            <a href="https://instagram.com" target="_blank" class="nav-btn insta-btn">
+                <i class="fa-brands fa-instagram"></i>
+            </a>
+            
+            <!-- Botón 2: HOME con gradiente Nuevaño -->
+            <div class="nav-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                <i class="fa-solid fa-house"></i>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyText(text) {
+            const input = document.createElement('textarea');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+
+            const toast = document.getElementById('toast');
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+            
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(50);
+            }
+        }
+    </script>
+</body>
+</html>
