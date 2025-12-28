@@ -1068,104 +1068,862 @@
 
                     <h3 class="text-xl font-semibold mt-4 mb-4 border-b-2 border-gray-700 pb-2 light-mode:border-gray-400">1. Selecciona <u>UN SOLO</u> ingrediente:</h3>
                     
-                    ${alreadyContributed ? 
-                        `<div class="p-4 bg-purple-900/50 rounded-lg text-center font-bold text-yellow-300 border-2 border-yellow-500 shadow-lg mb-6 light-mode:bg-purple-200/50 light-mode:text-purple-800 light-mode:border-purple-500">
-                            ¡YA HICISTE TU APORTE! (Ingrediente: ${REQUIRED_INGREDIENTS.find(i => i.id === Object.values(contributions).find(c => c.helperId === userId)?.id)?.name || 'Desconocido'})
-                        </div>` : ''
-                    }
+                    ${alreadyContributed ? <!-- 
+    ========================================================================
+    NUEVAÑO | HALLACAZO! (HOST)
+    ========================================================================
+    Este archivo permite al host:
+    1. Iniciar un nuevo "batch" de hallacas o cargar uno existente.
+    2. Generar el link para compartir con los "Panas" (que usarán pana.html).
+    3. Ver la lista de ingredientes en tiempo real gracias a Firestore.
+    4. Controlar el estado de la hallaca (En Proceso / Lista).
+    5. Borrar todo el progreso actual (Host Data)
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NUEVAÑO | HALLACAZO!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&family=Great+Vibes&family=Bangers&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0f172a; /* Slate-900 (Dark Mode Default) */
+            color: #fff;
+            margin: 0;
+            padding-bottom: 120px; 
+            overflow-x: hidden;
+            /* Transición para color y blur/filtro */
+            transition: background-color 0.5s ease, color 0.5s ease, filter 0.5s ease; 
+        }
 
-                    <!-- Grid responsive: 2 columnas en móvil, 5 en escritorio -->
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                        ${contributionHtml}
-                    </div>
+        .logo-font { font-family: 'Great Vibes', cursive; }
+        .comic-font { font-family: 'Bangers', cursive; letter-spacing: 1px; }
+        
+        /* Estilos específicos para la Hallaca */
+        .hallaca-wrapper {
+            background: #1e293b; /* Slate-800 */
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
 
-                    ${!alreadyContributed ? `
-                        <h3 class="text-xl font-semibold mt-8 mb-4 border-b-2 border-gray-700 pb-2 light-mode:border-gray-400">2. Deja un mensaje (¡Con Sazón!):</h3>
-                        <textarea id="pana-message" oninput="updatePanaMessage(this.value)" 
-                            class="w-full h-24 p-3 bg-gray-900 rounded-lg border-2 border-gray-700 focus:ring-orange-500 focus:border-orange-500 light-mode:bg-white light-mode:border-gray-300 light-mode:text-gray-900" 
-                            placeholder="Ej: 'El guiso me quedó sazonado con cariño!'" maxlength="150">${state.panaMessage}</textarea>
+        .ingredient-card {
+            background: #0f172a; /* Slate-900 */
+            border-left: 4px solid #f59e0b; /* Amber-500 */
+        }
+        
+        .ingredient-list {
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin; /* Firefox */
+        }
+        .ingredient-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .ingredient-list::-webkit-scrollbar-thumb {
+            background-color: #475569; /* Slate-600 */
+            border-radius: 4px;
+        }
+        
+        /* Estilos para la lista de ingredientes del host (editable) */
+        .host-ingredient-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #0f172a;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #334155;
+        }
 
-                        <button onclick="contributeIngredient()" 
-                            class="w-full mt-6 px-4 py-3 text-lg btn-action rounded-full font-bold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-white"
-                            ${!state.selectedIngredient || alreadyContributed ? 'disabled' : ''}>
-                            <i class="fas fa-gift mr-2"></i> ¡ENVIAR INGREDIENTE!
-                        </button>
-                    ` : ''}
+        /* Estilo para el splash screen */
+        #splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+        }
 
-                    <a href="${BASE_URL}" class="mt-6 block text-center text-sm text-gray-500 hover:text-white transition-colors light-mode:text-gray-500 light-mode:hover:text-gray-900">Volver a la Vista Principal (Para ser el HOST)</a>
-                </div>
-            `;
-            // Asegurar que el mensaje se mantenga si el usuario ya escribió algo
-            const panaMessageEl = document.getElementById('pana-message');
-            if (panaMessageEl) {
-                panaMessageEl.value = state.panaMessage;
+        /* Modal Styles */
+        #modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #modal-box {
+            background-color: #1e293b;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        /* Particle system for Hallaca ready animation */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50; /* Above regular content but below modal */
+            pointer-events: none;
+        }
+
+        /* Footer styling */
+        #footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: #0b131f; /* Un poco más oscuro */
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Canvas de Partículas (Para animación "Hallaca Lista") -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- SPLASH SCREEN -->
+    <div id="splash">
+        <i class="fas fa-spinner fa-spin text-5xl text-yellow-500 mb-6"></i>
+        <h1 class="text-3xl font-bold comic-font text-white">CARGANDO EL GUISO...</h1>
+        <p class="text-sm text-gray-400 mt-2">Cocinando la conexión en tiempo real.</p>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="app" class="max-w-4xl mx-auto p-4 md:p-8">
+        <!-- RENDERIZADO DINÁMICO AQUÍ -->
+    </div>
+
+    <!-- FOOTER (Frases) -->
+    <div id="footer" class="p-3 text-center text-xs text-gray-400 transition-all duration-300">
+        <p id="footer-phrase" class="font-semibold"></p>
+    </div>
+
+    <!-- MODAL OVERLAY -->
+    <div id="modal-overlay">
+        <div id="modal-box" class="text-center">
+            <h2 id="modal-title" class="text-xl font-bold mb-4 text-yellow-400 comic-font"></h2>
+            <p id="modal-message" class="text-gray-300 mb-6 break-words"></p>
+            <button id="modal-action-btn" class="w-full py-3 rounded-full font-bold text-white"></button>
+        </div>
+    </div>
+
+    <!-- MODAL para Añadir Ingredientes -->
+    <div id="add-ingredient-modal-overlay" class="fixed top-0 left-0 w-full h-full bg-black/70 z-[1001] hidden items-center justify-center">
+        <div class="bg-slate-800 rounded-xl p-6 w-11/12 max-w-sm shadow-2xl">
+            <h3 class="text-xl font-bold text-yellow-400 mb-4 comic-font">Añadir Ingrediente a la Lista</h3>
+            <input type="text" id="new-ingredient-name" placeholder="Ej: Pasas, Onoto, Cerveza..." 
+                   class="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:ring-yellow-500 focus:border-yellow-500 mb-4">
+            <div class="flex justify-end space-x-3">
+                <button onclick="hideAddIngredientModal()" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    Cancelar
+                </button>
+                <button onclick="addNewIngredient()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    Añadir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // =========================================================================
+        // --- CONFIGURACIÓN DE FIREBASE (INCLUYE CLAVES DEL USUARIO) ---
+        // ESTA CONFIGURACIÓN SE USA SI EL CÓDIGO SE EJECUTA FUERA DEL ENTORNO CANVAS.
+        // =========================================================================
+        const FIREBASE_CONFIG_PLACEHOLDER = { 
+            apiKey: "AIzaSyDFqK4T7TuIx-uUgJeFmx5Km7G01FwizpA",
+            authDomain: "naproject-9c957.firebaseapp.com",
+            projectId: "naproject-9c957",
+            storageBucket: "naproject-9c957.firebasestorage.app",
+            messagingSenderId: "384570292100",
+            appId: "1:384570292100:web:1e074c0706fa8e0e488fd1",
+            measurementId: "G-NS6BNHSSYX"
+        }; 
+
+        // El ID por defecto se usa si el host abre hallaca.html sin parámetros en la URL.
+        const EXTERNAL_APP_ID_PLACEHOLDER = "hallaca-collab-default";
+
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL STATE ---
+        const state = {
+            db: null,
+            auth: null,
+            userId: null,
+            appId: null,
+            currentBatchId: null, // ID del lote actual
+            isAuthReady: false,
+            hallacaStatus: 'EN PROCESO', // EN PROCESO | LISTA
+            ingredients: [], // Aportes de los panas
+            hostIngredients: [], // Lista de ingredientes que el host necesita (para pana.html)
+            userData: null, // Datos del usuario (host)
+            unsubscribeIngredients: null, // Listener de aportes de ingredientes
+            unsubscribeUserData: null, // Listener de datos del host
+            isCanvasEnvironment: typeof __app_id !== 'undefined',
+        };
+
+        // --- CONSTANTES ---
+        const PUBLIC_COLLECTION = 'hallacaContributions';
+        const HOST_DOC = 'hallacaHostData';
+        const HOST_COLLECTION = 'hallacaHosts'; 
+        const EMOJIS = {
+            'Hojas': '🌿', 'Masa': '🍚', 'Guiso': '🥩', 'Aliños': '🌶️', 'Aporte': '💰',
+            'Harina PAN': '🍚', 'Verduras para el guiso': '🧅', 'Aceitunas': '🫒', 
+            'Pasas': '🍇', 'Agua pa la olla': '💧', 'Hoja de plátano': '🌿'
+        };
+
+        const BASE_INGREDIENTS = [
+            'Harina PAN', 'Verduras para el guiso', 'Aceitunas', 'Pasas', 'Agua pa la olla', 'Hoja de plátano', 'Aporte'
+        ];
+
+        const PHRASES = [
+            "¡El que no carga leña, no come hallaca!",
+            "El guiso se está cocinando a fuego lento.",
+            "¡Dale, Pana! Que la masa está lista.",
+            "Que no falten las alcaparras y las pasitas.",
+            "¡A mojar las manos! Aporte en proceso.",
+            "En la unión está el sabor, ¡y el Hallacazo!",
+            "Esperando los ingredientes. ¡Señores de la Hallaca, apúrense!"
+        ];
+
+        // --- UTILS ---
+        function getAppId() {
+            if (state.isCanvasEnvironment) {
+                return typeof __app_id !== 'undefined' ? __app_id : EXTERNAL_APP_ID_PLACEHOLDER;
+            }
+            const params = new URLSearchParams(window.location.search);
+            return params.get('appId') || EXTERNAL_APP_ID_PLACEHOLDER;
+        }
+
+        function showToast(message, duration = 3000, bgColor = 'bg-yellow-600') {
+            console.log(`[Toast] ${message}`);
+            // Implementación de toast real omitida por simplicidad, usando console.log
+        }
+
+        function showModal(title, message, actionText, actionCallback, actionBgColor = 'bg-red-600 hover:bg-red-700') {
+            // Lógica del modal (igual que antes)
+            const overlay = document.getElementById('modal-overlay');
+            const titleEl = document.getElementById('modal-title');
+            const messageEl = document.getElementById('modal-message');
+            const actionBtn = document.getElementById('modal-action-btn');
+
+            if (!overlay) return;
+
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            actionBtn.textContent = actionText;
+            actionBtn.className = `w-full py-3 rounded-full font-bold text-white ${actionBgColor} transition-colors`;
+
+            const newBtn = actionBtn.cloneNode(true);
+            actionBtn.parentNode.replaceChild(newBtn, actionBtn);
+
+            newBtn.addEventListener('click', () => {
+                actionCallback();
+                hideModal();
+            });
+
+            overlay.style.display = 'flex';
+        }
+
+        function hideModal() {
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+        
+        // Modal para añadir ingredientes
+        window.showAddIngredientModal = function() {
+            document.getElementById('add-ingredient-modal-overlay').style.display = 'flex';
+            document.getElementById('new-ingredient-name').value = '';
+            document.getElementById('new-ingredient-name').focus();
+        }
+
+        window.hideAddIngredientModal = function() {
+            document.getElementById('add-ingredient-modal-overlay').style.display = 'none';
+        }
+
+        // Lógica de partículas (igual que antes)
+        const particleCanvas = document.getElementById('particle-canvas');
+        let pCtx;
+        let particles = [];
+        let animationFrameId = null;
+
+        function initParticleSystem() {
+            if (!particleCanvas) return;
+            pCtx = particleCanvas.getContext('2d');
+            resizeCanvas(); 
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        function resizeCanvas() {
+            if (!particleCanvas) return;
+            particleCanvas.width = window.innerWidth;
+            particleCanvas.height = window.innerHeight;
+        }
+
+        class Particle { /* ... (Lógica de Particle es la misma) ... */
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 6; 
+                this.vy = (Math.random() - 0.5) * 6; 
+                this.gravity = 0.05; 
+                this.friction = 0.98; 
+                this.alpha = 1;
+                this.fadeRate = Math.random() * 0.01 + 0.005; 
+                this.size = Math.random() * 2 + 1;
+                this.color = color;
+            }
+
+            update() {
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.vy += this.gravity; 
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.fadeRate;
+            }
+
+            draw() {
+                pCtx.save();
+                pCtx.globalAlpha = this.alpha;
+                pCtx.fillStyle = this.color;
+                pCtx.beginPath();
+                pCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                pCtx.fill();
+                pCtx.restore();
             }
         }
 
-        // -------------------------------------------------------------------
-        // MAIN RENDERING AND INITIALIZATION
-        // -------------------------------------------------------------------
-        
-        // Función expuesta para la vista Pana
-        window.selectIngredient = (id) => {
-            state.selectedIngredient = id;
-            renderPanaView(); // Re-renderizar la vista para mostrar la selección
-        }
-        
-        // Función expuesta para actualizar el mensaje del Pana
-        window.updatePanaMessage = (value) => {
-            state.panaMessage = value;
-        }
-        
-        // Exponer funciones necesarias globalmente para onClick en HTML
-        window.addBatch = addBatch;
-        window.createHallacasBatch = createHallacasBatch;
-        window.contributeIngredient = contributeIngredient;
-        window.showModal = showModal; // Exponer modal para re-uso
-
-        /**
-         * Renderizado principal basado en la URL (Host vs Pana).
-         */
-        function renderApp() {
-            if (!isAuthReady) return; // Esperar autenticación
+        function createCelebration(count = 100) {
+            const centerX = particleCanvas.width / 2;
+            const centerY = particleCanvas.height / 2;
+            const colors = ['#fcd34d', '#ef4444', '#22c55e', '#a855f7']; 
             
-            // Modal de animación y alerta
-            if (!document.getElementById('hallaca-animation')) {
-                 document.body.insertAdjacentHTML('beforeend', `
-                    <!-- Modal de Animación de Hallaca -->
-                    <div id="hallaca-animation" class="hallaca-anim-container hidden opacity-0">
-                        <div class="text-center p-8 bg-gray-900/90 rounded-2xl border-4 border-orange-500 shadow-[10px_10px_0_0_#ec4899]">
-                            <h2 id="anim-title" class="text-4xl font-bangers text-white mb-6 tracking-wider transition-all duration-200 ease-out">Iniciando Lote...</h2>
-                            <div class="hallaca-animation-box mx-auto">
-                                <span id="step-masa" class="hallaca-step opacity-0">🥣</span>
-                                <span id="step-guiso" class="hallaca-step opacity-0">🥩</span>
-                                <span id="step-hoja" class="hallaca-step opacity-0">🍃</span>
-                                <span id="step-doblar" class="hallaca-step opacity-0">🎁</span>
-                                <span id="final-hallaca" class="hallaca-step opacity-0 scale-50">🇻🇪</span>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Modal de Alertas (simple) -->
-                    <div id="alert-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center hidden">
-                        <!-- Contenido del Modal (estilo comic-panel) -->
-                        <div id="modal-content" class="comic-panel p-6 max-w-sm w-11/12 md:w-full" onclick="event.stopPropagation()">
-                            <h3 id="modal-title" class="text-2xl font-bold comic-font mb-4 text-red-400 border-b border-gray-700 pb-2 light-mode:border-gray-400"></h3>
-                            <p id="modal-message" class="text-gray-300 mb-6 break-words"></p>
-                            <button id="modal-action-btn" class="w-full py-3 rounded-full font-bold text-white"></button>
-                        </div>
-                    </div>
-                `);
+            for (let i = 0; i < count; i++) {
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                particles.push(new Particle(centerX, centerY, color));
+            }
+        }
+
+        function animateParticles() {
+            pCtx.fillStyle = 'rgba(15, 23, 42, 0.1)';
+            pCtx.fillRect(0, 0, particleCanvas.width, particleCanvas.height);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
             }
             
-
-            if (state.currentBatchId) {
-                renderPanaView(); // Renderizar vista de Pana
+            if (particles.length > 0) {
+                animationFrameId = requestAnimationFrame(animateParticles);
             } else {
-                renderHostView(); // Renderizar vista de Host
+                animationFrameId = null;
+                pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
             }
         }
 
-        // Inicialización al cargar la página
+        function startCelebration() {
+            createCelebration(200);
+            if (!animationFrameId) {
+                animateParticles();
+            }
+        }
+        
+        function copyToClipboard(text) {
+            // Lógica de copiado al portapapeles (igual que antes)
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; 
+            textarea.style.opacity = 0;
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                const successful = document.execCommand('copy');
+                return successful;
+            } catch (err) {
+                console.error('Fallback: No se pudo copiar.', err);
+                return false;
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function updateFooterPhrase() {
+            const footerEl = document.getElementById('footer-phrase');
+            if (footerEl) {
+                const randomIndex = Math.floor(Math.random() * PHRASES.length);
+                footerEl.textContent = PHRASES[randomIndex];
+            }
+        }
+
+
+        // --- FIREBASE SETUP ---
+        async function initializeFirebase() {
+            // Lógica de inicialización (igual que antes)
+            try {
+                state.appId = getAppId();
+                let firebaseConfig;
+                if (state.isCanvasEnvironment) {
+                    if (typeof __firebase_config === 'string' && __firebase_config.length > 0) {
+                        firebaseConfig = JSON.parse(__firebase_config);
+                    } else {
+                         firebaseConfig = FIREBASE_CONFIG_PLACEHOLDER; 
+                    }
+                } else if (FIREBASE_CONFIG_PLACEHOLDER.projectId) {
+                    firebaseConfig = FIREBASE_CONFIG_PLACEHOLDER;
+                } else {
+                    throw new Error("Configuración de Firebase faltante.");
+                }
+
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Configuración de Firebase no válida.");
+                }
+                
+                const app = initializeApp(firebaseConfig);
+                state.db = getFirestore(app);
+                state.auth = getAuth(app);
+                
+                if (state.isCanvasEnvironment && typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(state.auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(state.auth);
+                }
+                
+                onAuthStateChanged(state.auth, (user) => {
+                    if (user) {
+                        state.userId = user.uid;
+                        state.isAuthReady = true;
+                        setupFirestoreListeners();
+                        console.log(`Usuario autenticado (Host): ${state.userId}`);
+                        renderApp(); 
+                    } else {
+                        state.isAuthReady = false;
+                        showToast("Error de Autenticación. Intenta recargar.", 5000, 'bg-red-600');
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error durante Firebase initialization:", error);
+                document.getElementById('app').innerHTML = `
+                    <div class="p-6 hallaca-wrapper mt-10">
+                        <p class="text-red-400 text-lg font-bold comic-font">ERROR FATAL DE CONEXIÓN</p>
+                        <p class="text-gray-400 text-sm mt-2">No se pudo iniciar Firebase. ${error.message}.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // --- FIRESTORE LISTENERS ---
+
+        function setupFirestoreListeners() {
+            if (!state.isAuthReady || !state.userId) return;
+
+            // 1. Host Data Listener (Privado) - Actualizado para cargar hostIngredients
+            const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+            
+            if (state.unsubscribeUserData) state.unsubscribeUserData();
+
+            state.unsubscribeUserData = onSnapshot(hostDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    state.userData = docSnap.data();
+                    state.hallacaStatus = state.userData.status || 'EN PROCESO';
+                    state.currentBatchId = state.userData.currentBatchId;
+                    // ** NUEVO: Cargar lista de ingredientes del Host **
+                    state.hostIngredients = state.userData.ingredientsList || BASE_INGREDIENTS;
+                    renderApp(); 
+                } else {
+                    state.userData = null;
+                    state.currentBatchId = null;
+                    state.hostIngredients = []; // Limpiar lista de host
+                    if (state.unsubscribeIngredients) {
+                        state.unsubscribeIngredients();
+                        state.unsubscribeIngredients = null;
+                    }
+                    state.ingredients = [];
+                    renderApp();
+                }
+            }, (error) => {
+                console.error("Error al escuchar datos del host:", error);
+                showToast("Error de datos de Hallaca. Recarga la página.", 5000, 'bg-red-700');
+            });
+
+
+            // 2. Ingredients Listener (Público, para aportes) - Lógica igual que antes
+            const batchToListen = state.currentBatchId;
+            if (batchToListen) {
+                const ingredientsColRef = collection(state.db, `artifacts/${state.appId}/public/data/${PUBLIC_COLLECTION}`);
+                const q = query(ingredientsColRef, where("batchId", "==", batchToListen));
+                
+                if (state.unsubscribeIngredients) state.unsubscribeIngredients();
+
+                state.unsubscribeIngredients = onSnapshot(q, (snapshot) => {
+                    state.ingredients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                                   .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)); 
+
+                    renderIngredientsList(); // Aportes
+                    renderHostIngredientsList(); // Lista de Host (para que se actualicen las marcas)
+
+                    if (state.hallacaStatus === 'LISTA') {
+                        startCelebration();
+                    }
+                }, (error) => {
+                    console.error("Error al escuchar aportes:", error);
+                    showToast("Error de datos públicos. Recarga la página.", 5000, 'bg-red-700');
+                });
+            } else {
+                 if (state.unsubscribeIngredients) state.unsubscribeIngredients();
+                 state.ingredients = [];
+                 renderIngredientsList();
+            }
+        }
+
+
+        // --- FIREBASE ACTIONS ---
+
+        // Inicia un nuevo lote de hallacas (sobrescribe el anterior si existe)
+        window.startNewBatch = async function() {
+            if (!state.isAuthReady || !state.userId) return;
+
+            const newBatchId = crypto.randomUUID();
+            const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+            
+            try {
+                // ** NUEVO: Guardar la lista de ingredientes base **
+                await setDoc(hostDocRef, {
+                    currentBatchId: newBatchId,
+                    status: 'EN PROCESO',
+                    createdAt: serverTimestamp(),
+                    hostUserId: state.userId,
+                    appId: state.appId,
+                    ingredientsList: BASE_INGREDIENTS // Guarda la lista inicial
+                }, { merge: false });
+
+                state.hallacaStatus = 'EN PROCESO';
+                state.currentBatchId = newBatchId;
+                state.hostIngredients = BASE_INGREDIENTS;
+                showToast("¡Nuevo Hallacazo iniciado con ingredientes base!", 3000, 'bg-blue-600');
+
+            } catch (error) {
+                console.error("Error al iniciar nuevo batch:", error);
+                showToast(`Error: ${error.message}`, 5000, 'bg-red-700');
+            }
+        }
+        
+        // ** NUEVO: Agregar un ingrediente a la lista del Host **
+        window.addNewIngredient = async function() {
+            if (!state.isAuthReady || !state.userId || !state.currentBatchId) return;
+            
+            const newIngredientName = document.getElementById('new-ingredient-name').value.trim();
+            if (newIngredientName === "") {
+                showToast("El nombre del ingrediente no puede estar vacío.", 3000, 'bg-yellow-600');
+                return;
+            }
+            
+            hideAddIngredientModal();
+            
+            // Normalizar el nombre (capitalizar)
+            const normalizedName = newIngredientName.charAt(0).toUpperCase() + newIngredientName.slice(1).toLowerCase();
+
+            if (state.hostIngredients.includes(normalizedName)) {
+                 showToast("¡Ese ingrediente ya está en la lista!", 3000, 'bg-yellow-600');
+                 return;
+            }
+
+            const newIngredientsList = [...state.hostIngredients, normalizedName];
+            
+            try {
+                const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+                await setDoc(hostDocRef, { ingredientsList: newIngredientsList }, { merge: true });
+                showToast(`Ingrediente '${normalizedName}' añadido.`, 3000, 'bg-indigo-600');
+                // La actualización de state.hostIngredients se maneja por el onSnapshot
+            } catch (error) {
+                console.error("Error al añadir ingrediente:", error);
+                showToast(`Error al añadir: ${error.message}`, 5000, 'bg-red-700');
+            }
+        }
+
+        // ** NUEVO: Eliminar un ingrediente de la lista del Host **
+        window.removeHostIngredient = async function(ingredientToRemove) {
+            if (!state.isAuthReady || !state.userId || !state.currentBatchId) return;
+
+            const newIngredientsList = state.hostIngredients.filter(ing => ing !== ingredientToRemove);
+
+            try {
+                const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+                await setDoc(hostDocRef, { ingredientsList: newIngredientsList }, { merge: true });
+                showToast(`Ingrediente '${ingredientToRemove}' eliminado de la lista.`, 3000, 'bg-gray-600');
+            } catch (error) {
+                console.error("Error al eliminar ingrediente:", error);
+                showToast(`Error al eliminar: ${error.message}`, 5000, 'bg-red-700');
+            }
+        }
+
+        // ** FUNCIÓN DE BORRADO TOTAL DE PROGRESO ** (Igual que antes)
+        window.deleteHostData = async function() {
+            if (!state.isAuthReady || !state.userId) return;
+
+            const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+            
+            try {
+                if (state.unsubscribeIngredients) {
+                    state.unsubscribeIngredients();
+                    state.unsubscribeIngredients = null;
+                }
+                state.ingredients = []; 
+                state.hostIngredients = []; // Limpiar lista de host
+                state.currentBatchId = null; 
+
+                await deleteDoc(hostDocRef);
+                showToast("Progreso de Hallacazo eliminado. ¡Listo para empezar de cero!", 5000, 'bg-red-600');
+            } catch (error) {
+                console.error("Error al eliminar datos del host:", error);
+                showToast(`Error al eliminar progreso: ${error.message}`, 5000, 'bg-red-700');
+            }
+        }
+
+        // Marca el lote actual de hallacas como LISTO (Igual que antes)
+        window.markHallacaReady = async function() {
+            if (!state.isAuthReady || !state.userId || !state.currentBatchId) return;
+
+            const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+            
+            try {
+                await setDoc(hostDocRef, { status: 'LISTA' }, { merge: true });
+                state.hallacaStatus = 'LISTA';
+                startCelebration(); 
+                showToast("¡HALLACA LISTA! A disfrutar, Panas.", 5000, 'bg-pink-600');
+                renderApp();
+
+            } catch (error) {
+                console.error("Error al marcar como LISTA:", error);
+                showToast(`Error: ${error.message}`, 5000, 'bg-red-700');
+            }
+        }
+        
+        // --- RENDERING FUNCTIONS ---
+
+        // ** NUEVO: Renderiza la lista de ingredientes que el host requiere **
+        function renderHostIngredientsList() {
+             const listEl = document.getElementById('host-ingredients-list');
+             if (!listEl) return;
+             
+             if (state.hostIngredients.length === 0) {
+                 listEl.innerHTML = `<p class="text-center text-gray-500 py-4">No has añadido ingredientes. ¡Añade con el botón de abajo!</p>`;
+                 return;
+             }
+             
+             // Identificar qué ingredientes ya fueron aportados
+             const contributedIngredients = new Set(state.ingredients.map(i => i.ingredient));
+
+             const html = state.hostIngredients.map(ing => {
+                 const isContributed = contributedIngredients.has(ing);
+                 const emoji = EMOJIS[ing] || '❓';
+                 const contributedBadge = isContributed ? 
+                    `<span class="text-xs bg-green-600 px-2 py-1 rounded-full font-bold">APORTADO</span>` :
+                    `<span class="text-xs bg-yellow-600 px-2 py-1 rounded-full font-bold">PENDIENTE</span>`;
+
+                 return `
+                     <div class="host-ingredient-item">
+                         <div class="flex items-center space-x-3 flex-1">
+                             <span class="text-xl">${emoji}</span>
+                             <span class="font-semibold text-white ${isContributed ? 'line-through opacity-70' : ''}">${ing}</span>
+                         </div>
+                         <div class="flex items-center space-x-3">
+                            ${contributedBadge}
+                            <button onclick="removeHostIngredient('${ing}')" class="text-red-400 hover:text-red-300 transition-colors" title="Eliminar de la lista">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                         </div>
+                     </div>
+                 `;
+             }).join('');
+
+             listEl.innerHTML = html;
+        }
+
+
+        function renderIngredientsList() {
+            // Renderiza la lista de APORTES recibidos (igual que antes)
+            const listEl = document.getElementById('ingredients-list');
+            if (!listEl) return;
+
+            if (state.ingredients.length === 0) {
+                listEl.innerHTML = `<p class="text-center text-gray-500 py-8">¡Aún no hay aportes! Comparte el link.</p>`;
+                return;
+            }
+
+            const total = state.ingredients.length;
+            const uniqueContributors = new Set(state.ingredients.map(i => i.donor)).size;
+            
+            let html = `<div class="p-3 bg-gray-900 rounded-lg mb-4 flex justify-between text-sm font-semibold">
+                            <span>Total Aportes: ${total}</span>
+                            <span>Panas Colaborando: ${uniqueContributors}</span>
+                        </div>`;
+
+            html += state.ingredients.map(ing => {
+                const date = ing.timestamp ? new Date(ing.timestamp.seconds * 1000).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : 'Ahora';
+                const emoji = EMOJIS[ing.ingredient] || '❓';
+                return `
+                    <div class="ingredient-card p-3 my-2 rounded-lg flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="font-bold text-base text-white">${emoji} ${ing.ingredient}</p>
+                            <p class="text-xs text-gray-400 mt-1">${ing.note || 'Sin nota.'}</p>
+                        </div>
+                        <div class="text-right ml-4">
+                            <p class="text-sm font-semibold text-yellow-500">${ing.donor}</p>
+                            <p class="text-[10px] text-gray-500 mt-1">${date}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            listEl.innerHTML = html;
+        }
+
+
+        function renderHostView() {
+            const appEl = document.getElementById('app');
+            let content = '';
+
+            if (!state.isAuthReady) {
+                content = `<div class="text-center p-10 mt-10 hallaca-wrapper">
+                            <i class="fas fa-key fa-spin text-4xl text-yellow-500 mb-4"></i>
+                            <h2 class="text-2xl font-bold comic-font text-white">AUTENTICANDO AL HOST...</h2>
+                            <p class="text-gray-400 mt-2">Esperando la conexión segura. Esto puede tardar unos segundos.</p>
+                        </div>`;
+            } else if (!state.currentBatchId) {
+                // Vista inicial: Iniciar nuevo batch
+                content = `
+                    <div class="text-center p-8 mt-10 hallaca-wrapper">
+                        <h1 class="text-4xl font-bold logo-font text-yellow-500 mb-2">¡Bienvenido al Hallacazo!</h1>
+                        <p class="text-gray-300 mb-8">Esta es tu central de mando. Empecemos a cocinar.</p>
+                        
+                        <button onclick="startNewBatch()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-full w-full comic-font text-xl transition-all shadow-lg shadow-indigo-500/50 active:scale-95">
+                            <i class="fas fa-play-circle mr-2"></i> INICIAR NUEVO LOTE DE HALLACAS
+                        </button>
+
+                        <p class="text-xs text-gray-500 mt-4">Un lote (batch) es una sesión única de recolección de ingredientes.</p>
+                        <p class="text-[10px] text-gray-600 mt-2">ID de Usuario (Para Debug/Soporte): ${state.userId}</p>
+                    </div>
+                `;
+            } else {
+                // Vista de Hallaca en Curso
+                const shareLink = `${window.location.origin}${window.location.pathname.replace('hallaca.html', 'pana.html')}?batchId=${state.currentBatchId}`;
+                const statusColor = state.hallacaStatus === 'LISTA' ? 'bg-green-600' : 'bg-yellow-600';
+                const statusIcon = state.hallacaStatus === 'LISTA' ? 'fa-check-double' : 'fa-hourglass-start';
+                const statusText = state.hallacaStatus === 'LISTA' ? 'HALLACA LISTA' : 'EN PROCESO';
+
+                content = `
+                    <div id="hallaca-view" class="p-4 md:p-8 mt-10 hallaca-wrapper">
+                        <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                            <h1 class="text-3xl font-bold comic-font text-yellow-400">Hallacazo #${state.currentBatchId.substring(0, 8)}</h1>
+                            <span class="${statusColor} text-xs font-bold text-white px-3 py-1 rounded-full shadow-md">
+                                <i class="fas ${statusIcon} mr-1"></i> ${statusText}
+                            </span>
+                        </div>
+                        
+                        <!-- Lista de Ingredientes REQUERIDOS por el Host (Editable) -->
+                        <h2 class="text-xl font-bold comic-font text-indigo-300 mb-3 flex items-center">
+                            <i class="fas fa-list-alt mr-2"></i> Ingredientes Solicitados (Host)
+                        </h2>
+                        <div id="host-ingredients-list" class="mb-4">
+                            <!-- Lista de ingredientes requeridos se renderiza aquí -->
+                        </div>
+                        
+                        <button onclick="showAddIngredientModal()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg mb-8 transition-colors active:scale-[0.99] text-sm">
+                            <i class="fas fa-plus-circle mr-2"></i> Añadir Otro Ingrediente
+                        </button>
+
+                        <!-- Panel de Link para compartir -->
+                        <div class="mb-8 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                            <p class="text-sm font-semibold text-gray-300 mb-2">Link para compartir con los Panas:</p>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="share-link" value="${shareLink}" readonly
+                                       class="flex-1 p-3 rounded-l-lg bg-gray-700 text-xs text-yellow-300 border border-yellow-700 outline-none truncate">
+                                <button onclick="copyShareLink('${shareLink}')" class="bg-yellow-600 hover:bg-yellow-500 text-black font-bold p-3 rounded-r-lg comic-font text-sm transition-colors active:scale-95">
+                                    <i class="fas fa-copy"></i> Copiar Link Pana
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-gray-500 mt-2">Los Panas verán la lista de ingredientes que acabas de definir.</p>
+                        </div>
+
+                        <!-- Botones de Control y Tarea Pendiente -->
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            <button onclick="markHallacaReady()" 
+                                    class="${state.hallacaStatus === 'LISTA' ? 'bg-green-800 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white font-bold py-3 rounded-xl comic-font transition-all active:scale-95 text-sm"
+                                    ${state.hallacaStatus === 'LISTA' ? 'disabled' : ''}>
+                                <i class="fas fa-fire mr-2"></i> ${state.hallacaStatus === 'LISTA' ? '¡LISTA!' : 'MARCAR COMO LISTA'}
+                            </button>
+                            <button onclick="showModal('¿BORRAR TODO EL PROGRESO?', 'Esta acción ELIMINARÁ el registro de tu Hallacazo actual y cancelará la conexión con los Panas. ¿Confirmar borrado total?', 'SÍ, BORRAR TODO', deleteHostData)" 
+                                    class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl comic-font transition-colors active:scale-95 text-sm">
+                                <i class="fas fa-trash-alt mr-2"></i> CERRAR LOTE
+                            </button>
+                        </div>
+                        
+                        <!-- Lista de Ingredientes en Tiempo Real (APORTES) -->
+                        <h2 class="text-xl font-bold comic-font text-yellow-300 mb-4 flex items-center">
+                            <i class="fas fa-bell mr-2"></i> Aportes Recibidos de Panas:
+                        </h2>
+                        <div id="ingredients-list" class="ingredient-list">
+                            <!-- Lista de aportes se renderiza aquí -->
+                            <p class="text-center text-gray-500 py-8">Cargando aportes...</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            appEl.innerHTML = content;
+            // Asegurarse de renderizar la lista del Host también en la vista de Hallaca en Curso
+            if (state.currentBatchId) {
+                renderHostIngredientsList();
+            }
+        }
+        
+        // Función auxiliar para copiar el link
+        window.copyShareLink = function(link) {
+            if (copyToClipboard(link)) {
+                showToast('¡Link copiado!', 3000, 'bg-green-600');
+            } else {
+                showToast('Error al copiar el link.', 3000, 'bg-red-600');
+            }
+        }
+
+        // --- MAIN RENDER LOOP ---
+        function renderApp() {
+            renderHostView();
+        }
+
+        // --- INITIALIZATION ---
         window.onload = () => {
             // 1. Ocultar Splash
             setTimeout(() => {
@@ -1178,17 +1936,13 @@
             
             // 2. Inicializar Firebase
             initializeFirebase();
-            renderApp();
             
             // 3. Iniciar el loop de frases del footer
-            updateFooterPhrase(); // Cargar la primera frase
-            setInterval(updateFooterPhrase, 4000); // Cambiar cada 4 segundos
+            updateFooterPhrase();
+            setInterval(updateFooterPhrase, 4000);
             
             // 4. Iniciar el sistema de partículas
             initParticleSystem();
-            
-            // 5. Inicializar tema y listeners
-            setupThemeListeners();
         }
     </script>
 </body>
