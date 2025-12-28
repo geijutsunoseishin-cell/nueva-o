@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verificación de Pago - Zaher Machado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <!-- Librería para generar el Código QR -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        /* Estilos Generales y Tipografía */
+        :root {
+            --primary: #1e40af; /* Tailwind blue-700 */
+            --success: #10b981; /* Tailwind emerald-500 */
+            --warning: #f59e0b; /* Tailwind amber-500 */
+            --bg-dark: #0f172a; /* Tailwind slate-900 */
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f8fafc; /* slate-100 */
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        /* Efecto Cashea/Bento Card */
+        .card {
+            background: #1e293b; /* slate-800 */
+            border: 1px solid #334155; /* slate-700 */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-width: 480px;
+            width: 100%;
+            margin: auto;
+            border-radius: 1.5rem;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow: hidden;
+            position: relative;
+        }
+        /* Animación de Carga (Loading) */
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid var(--success);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Poema Estilo */
+        .poem-text {
+            font-style: italic;
+            color: #94a3b8; /* slate-400 */
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            border-left: 3px solid var(--primary);
+            padding-left: 10px;
+        }
+
+        /* --- CLASES PARA TRANSICIONES SUAVES --- */
+        .step-content-wrapper {
+            /* Definición de la transición */
+            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+        }
+        .step-out {
+            /* Estado de Salida: invisible y ligeramente a la izquierda */
+            opacity: 0;
+            transform: translateX(-15px);
+        }
+        .step-in {
+            /* Estado de Entrada: visible en posición normal */
+            opacity: 1;
+            transform: translateX(0);
+        }
+        /* --------------------------------------------- */
+
+        /* Canvas para Fuegos Artificiales */
+        #fireworks-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Permite hacer clic a través del canvas */
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+        .success-active #fireworks-canvas {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Contenedor Principal de la Aplicación -->
+    <div id="app-container" class="card p-6 md:p-8">
+        <!-- Canvas para el efecto de fuegos artificiales (partículas) -->
+        <canvas id="fireworks-canvas"></canvas>
+
+        <h1 class="text-3xl font-black mb-6 text-center text-indigo-400 uppercase tracking-widest relative z-10">
+            Pago Móvil
+        </h1>
+
+        <!-- Contenido Dinámico (Steps) -->
+        <div id="content-container" class="relative z-10">
+            <!-- Los pasos se renderizarán aquí -->
+        </div>
+
+    </div>
+
+    <!-- Toast de Notificación -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-white text-gray-900 px-4 py-2 rounded-lg shadow-xl text-sm hidden transition duration-300 z-50">
+        ¡Copiado!
+    </div>
+
+    <script>
+        // ===============================================
+        // CONFIGURACIÓN Y CONSTANTES
+        // ===============================================
+        
+        // ** Reemplaza con tu URL de Apps Script (MANDATORIO) **
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbys5Vu2ZElCYeiqbjlk0I1PE7cZXBPGrIB3OZvIS5Heh7P7nViE8NSEsI_IpqY0JuhnOA/exec";
+        // ** Token de Seguridad (MANDATORIO, debe coincidir con Config!B1 en tu hoja) **
+        const TOKEN_SEGURIDAD = "ZAHER_SECURE_2025";
+        // ** URL de Redirección Éxito (MANDATORIO, cambiar por tu URL real) **
+        const FINAL_SUCCESS_REDIRECT_URL = "https://geijutsunoseishin-cell.github.io/nueva-o/index.html";
+
+        const INSTAGRAM_URL = "https://www.instagram.com/zahermachado_research";
+        
+        const POEMA = [
+            "amigo mío...",
+            "gracias por usar mi aplicación.",
+            "Eres honorable al darme tu apoyo para seguir creciendo",
+            "y dandole bendiciones a esta aplicación desde este lado de la geosfera"
+        ];
+        
+        const PAYMENT_DETAILS = {
+            bank: "BDV (0102)",
+            id: "V-30457141",
+            phone: "0412-7762812",
+            concept: "Nos vemos en la cima"
+        };
+
+        let currentStep = 'step0'; // INICIALIZACIÓN: Comenzar en el paso de mensaje
+        const TRANSITION_DURATION = 400; // ms, debe coincidir con el CSS
+
+        // ===============================================
+        // UTILIDADES Y UX
+        // ===============================================
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2500);
+        }
+
+        function copyText(text) {
+            try {
+                // Para navegadores modernos
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast("¡Copiado al portapapeles!");
+                    });
+                } else {
+                    // Fallback para navegadores antiguos
+                    const input = document.createElement('textarea');
+                    input.value = text;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    showToast("¡Copiado al portapapeles!");
+                }
+            } catch (err) {
+                showToast("Error al copiar.");
+            }
+        }
+
+        /**
+         * Genera el código QR en el canvas con los datos de pago.
+         * Requiere que la librería qrcode.min.js esté cargada.
+         */
+        function generateQRCode() {
+            const canvas = document.getElementById('qrCanvas');
+            if (canvas && typeof QRCode !== 'undefined') {
+                // Contenido del QR: Concatenamos la información clave para el Pago Móvil
+                const qrContent = `Banco: ${PAYMENT_DETAILS.bank} | ID: ${PAYMENT_DETAILS.id} | Tel: ${PAYMENT_DETAILS.phone}`;
+                
+                try {
+                    QRCode.toCanvas(canvas, qrContent, {
+                        errorCorrectionLevel: 'H',
+                        margin: 2,
+                        width: 150,
+                        color: {
+                            dark: '#1e293b', // Color oscuro (slate-800)
+                            light: '#ffffff' // Color claro (white)
+                        }
+                    }, function (error) {
+                        if (error) console.error("Error al renderizar QR:", error);
+                    });
+                } catch (e) {
+                    console.error("Fallo al llamar a QRCode.toCanvas:", e);
+                    // Fallback visual si falla la librería
+                    canvas.style.display = 'none';
+                    const parent = canvas.parentElement;
+                    parent.innerHTML += '<p class="text-red-400 text-xs mt-2 text-center">Error al generar QR. Datos disponibles a la izquierda.</p>';
+                }
+            } else if (canvas) {
+                 // Fallback visual si la librería no carga
+                 canvas.style.display = 'none';
+                 const parent = canvas.parentElement;
+                 parent.innerHTML += '<p class="text-red-400 text-xs mt-2 text-center">Librería QR no cargada.</p>';
+            }
+        }
+
+        // ===============================================
+        // FUNCIONES DE ESTADO Y VISTA
+        // ===============================================
+
+        // Dibuja el contenido basado en el paso actual
+        function getStepContent(step) {
+            let htmlContent = '';
+            
+            switch (step) {
+                case 'step0':
+                    // PASO 0: Mensaje Inicial / Poema
+                    htmlContent = `
+                        <div class="text-center pt-4 pb-8">
+                            <i class="fa-solid fa-handshake-angle text-5xl text-indigo-400 mb-6"></i>
+                            <h2 class="text-2xl font-bold mb-4 text-white">
+                                ¡Bienvenido!
+                            </h2>
+                            <p class="text-lg leading-relaxed mb-10 text-slate-300 italic px-2">
+                                ${POEMA[0]} ${POEMA[1]}<br>
+                                <span class="block mt-4 text-slate-400 font-semibold">${POEMA[2]}</span>
+                            </p>
+                            <button onclick="goToStep('step1_details')" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-indigo-500 transition duration-300 transform hover:scale-[1.01]">
+                                Ver Instrucción de Pago Móvil <i class="fa-solid fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+                    `;
+                    break;
+
+                case 'step1_details':
+                    // PASO 1: Instrucciones de Pago Móvil con QR (Columna Doble)
+                    htmlContent = `
+                        <h2 class="text-xl font-bold mb-6 text-white text-center">
+                            cada aporte es una oportunidad de hacer más arte como este. 🌲
+                        </h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            
+                            <!-- Columna 1: Detalles de Pago Móvil -->
+                            <div class="space-y-3 p-4 bg-slate-700 rounded-xl shadow-inner col-span-1">
+                                <p class="text-sm font-semibold text-indigo-400 mb-3">Datos Bancarios</p>
+                                <div class="flex justify-between items-center text-sm border-b border-slate-600 pb-2">
+                                    <span class="text-slate-400">Banco:</span>
+                                    <span class="font-semibold text-white flex items-center cursor-pointer" onclick="copyText('${PAYMENT_DETAILS.bank}')">
+                                        ${PAYMENT_DETAILS.bank} <i class="fa-regular fa-copy ml-2 text-sm text-indigo-400 hover:text-indigo-300"></i>
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm border-b border-slate-600 pb-2">
+                                    <span class="text-slate-400">Cédula/Rif:</span>
+                                    <span class="font-semibold text-white flex items-center cursor-pointer" onclick="copyText('${PAYMENT_DETAILS.id}')">
+                                        ${PAYMENT_DETAILS.id} <i class="fa-regular fa-copy ml-2 text-sm text-indigo-400 hover:text-indigo-300"></i>
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-400">Teléfono:</span>
+                                    <span class="font-semibold text-white flex items-center cursor-pointer" onclick="copyText('${PAYMENT_DETAILS.phone}')">
+                                        ${PAYMENT_DETAILS.phone} <i class="fa-regular fa-copy ml-2 text-sm text-indigo-400 hover:text-indigo-300"></i>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Columna 2: Código QR -->
+                            <div class="flex flex-col items-center justify-center p-4 bg-slate-700 rounded-xl shadow-inner col-span-1">
+                                <p class="text-sm font-semibold text-indigo-400 mb-2">Escanear para Pagar</p>
+                                <canvas id="qrCanvas" class="bg-white rounded-lg p-1 w-full max-w-[150px] aspect-square"></canvas>
+                            </div>
+                        </div>
+                        
+                        <p class="poem-text text-center">${POEMA[3]}</p>
+
+                        <button onclick="goToStep('step2_ready')" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-indigo-500 transition duration-300">
+                            Paso Siguiente (Ingresar Referencia)
+                        </button>
+                    `;
+                    break;
+
+                case 'step2_ready': 
+                    htmlContent = `
+                        <div class="text-center pt-4 pb-8">
+                            <i class="fa-solid fa-clipboard-check text-5xl text-emerald-400 mb-6"></i>
+                            <h2 class="text-2xl font-bold mb-4 text-white">
+                                ¿Ya realizaste el Pago Móvil?
+                            </h2>
+                            <p class="text-lg leading-relaxed mb-10 text-slate-300 italic px-2">
+                                Si ya tienes el número de referencia, presiona "Continuar" para validarlo en nuestro sistema.
+                                Si necesitas volver a ver los datos, usa el botón de atrás.
+                            </p>
+                            <button onclick="goToStep('step3_input')" class="w-full bg-emerald-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-emerald-500 transition duration-300 transform hover:scale-[1.01]">
+                                <i class="fa-solid fa-hand-point-right mr-2"></i> Ingresar Referencia Ahora
+                            </button>
+                             <button onclick="goToStep('step1_details')" class="w-full mt-4 bg-slate-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-slate-500 transition duration-300">
+                                <i class="fa-solid fa-arrow-left mr-2"></i> Volver a Ver Datos de Pago
+                            </button>
+                        </div>
+                    `;
+                    break;
+
+                case 'step3_input': 
+                    // PASO 3: Ingresar Referencia
+                    htmlContent = `
+                        <p class="poem-text">Recuerda: Si el pago se hizo hace poco, puede tardar hasta 5 minutos en reflejarse.</p>
+                        <h2 class="text-2xl font-bold mb-4 text-white">
+                            <i class="fa-solid fa-key mr-2 text-orange-500"></i>
+                            INSTRUCCIÓN: Ingresa la Referencia
+                        </h2>
+                        
+                        <div class="mb-6">
+                            <label for="referenceInput" class="block text-sm font-medium text-slate-400 mb-2">Referencia de Pago Móvil (6 a 12 dígitos)</label>
+                            <input type="text" id="referenceInput" placeholder="Ej: 123456789" 
+                                class="w-full p-3 rounded-xl bg-slate-700 text-white border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                inputmode="numeric" pattern="[0-9]*"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 12)">
+                        </div>
+
+                        <button id="verifyButton" onclick="verifyPayment()" class="w-full bg-emerald-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-emerald-500 transition duration-300">
+                            Verificar Pago
+                        </button>
+                    `;
+                    break;
+
+                case 'loading':
+                    htmlContent = `
+                        <div class="flex flex-col items-center justify-center py-10">
+                            <div class="loader mb-6"></div>
+                            <p class="poem-text text-center px-4">Verificando pago en la geosfera...</p>
+                            <h2 class="text-xl font-semibold text-indigo-400 animate-pulse">
+                                Esto puede tardar hasta 30 segundos.
+                            </h2>
+                        </div>
+                    `;
+                    break;
+                
+                case 'success':
+                    // Inicia los fuegos artificiales al entrar a esta vista
+                    document.getElementById('app-container').classList.add('success-active');
+                    startFireworks();
+                    
+                    htmlContent = `
+                        <div class="text-center py-8 relative z-10">
+                            <i class="fa-solid fa-heart-circle-check text-6xl text-lime-400 mb-4 animate-bounce"></i>
+                            <h2 class="text-3xl font-bold mb-2 text-lime-400">¡Pago Verificado con Éxito!</h2>
+                            <p class="text-xl font-light text-white mb-6">Tómate un momento para celebrar este apoyo.</p>
+                            
+                            <h3 class="text-lg font-semibold text-indigo-300 mb-4">Sigue mi trabajo</h3>
+                            <a href="${INSTAGRAM_URL}" target="_blank" class="w-full inline-block bg-pink-600 text-white font-semibold py-3 rounded-xl shadow-xl hover:bg-pink-500 transition duration-300 transform hover:scale-105">
+                                <i class="fa-brands fa-instagram mr-2"></i> Sígueme en Instagram
+                            </a>
+                            
+                            <!-- Botón de acceso final (Placeholder, cambiar) -->
+                            <a href="${FINAL_SUCCESS_REDIRECT_URL}" class="mt-4 w-full inline-block bg-slate-600 text-white font-semibold py-2 rounded-xl hover:bg-slate-500 transition duration-300 text-sm">
+                                Continuar a mi aplicación
+                            </a>
+
+                        </div>
+                    `;
+                    break;
+
+                case 'failure':
+                    htmlContent = `
+                        <div class="text-center py-8">
+                            <i class="fa-solid fa-triangle-exclamation text-6xl text-red-500 mb-4"></i>
+                            <h2 class="text-2xl font-bold mb-2 text-red-400">¡Pago Pendiente!</h2>
+                            <p class="text-md text-slate-300 mb-6">La referencia no fue encontrada en nuestro sistema.</p>
+                            <p class="text-sm poem-text">Por favor, espera unos minutos a que el banco envíe la notificación o verifica que ingresaste la referencia correctamente.</p>
+                            
+                            <button onclick="goToStep('step3_input')" class="w-full bg-red-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-red-500 transition duration-300">
+                                <i class="fa-solid fa-rotate-left mr-2"></i> Intentar de Nuevo (Volver)
+                            </button>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            // Envuelve el contenido en un div para la animación
+            return `<div id="step-content" class="step-content-wrapper">${htmlContent}</div>`;
+        }
+
+        function renderStep() {
+            const container = document.getElementById('content-container');
+            // Reemplaza el contenido del contenedor principal con el nuevo contenido envuelto
+            container.innerHTML = getStepContent(currentStep);
+        }
+
+        function goToStep(step) {
+            const container = document.getElementById('content-container');
+            const currentContent = document.getElementById('step-content');
+
+            // 0. Si ya estamos en el paso, no hacer nada
+            if (currentStep === step) return;
+            
+            // Detener fuegos artificiales si salimos del estado de éxito
+            if (step !== 'success') {
+                 document.getElementById('app-container').classList.remove('success-active');
+                 stopFireworks();
+            }
+            
+            // Si hay contenido actual, animarlo fuera
+            if (currentContent) {
+                 // 1. Fade out (mueve el contenido actual a la clase de salida)
+                currentContent.classList.remove('step-in');
+                currentContent.classList.add('step-out');
+            }
+
+            // 2. Después de la duración de la transición, cambiar contenido y animar la entrada
+            setTimeout(() => {
+                currentStep = step;
+                
+                // Reemplazar contenido con el nuevo contenido
+                container.innerHTML = getStepContent(currentStep);
+                
+                // *** NUEVA LÓGICA: Llamar al generador de QR si estamos en el paso de detalles ***
+                if (currentStep === 'step1_details') {
+                    generateQRCode();
+                }
+                // ********************************************************************************
+                
+                // 3. Fade in (animar el nuevo contenido a la clase de entrada)
+                const newContent = document.getElementById('step-content');
+                
+                if (newContent) {
+                    // Asegurar que el nuevo contenido empiece en estado de salida ('step-out')
+                    newContent.classList.add('step-out');
+                    
+                    // Usar requestAnimationFrame para asegurar que el navegador registre el estado 'step-out' antes de aplicar 'step-in'
+                    requestAnimationFrame(() => {
+                        newContent.classList.remove('step-out');
+                        newContent.classList.add('step-in');
+                    });
+                }
+                
+            }, currentContent ? TRANSITION_DURATION : 0); // No hay retraso si es el primer render
+        }
+
+        // ===============================================
+        // LÓGICA DE VERIFICACIÓN (Apps Script)
+        // ===============================================
+        
+        async function verifyPayment() {
+            const referenceInput = document.getElementById('referenceInput');
+            const referencia = referenceInput.value.trim();
+
+            if (!referencia || referencia.length < 6) {
+                showToast("Por favor, ingresa una referencia válida (mínimo 6 dígitos).");
+                return;
+            }
+
+            goToStep('loading');
+            
+            // Construir la URL de consulta con la referencia y el token de seguridad
+            const urlConsulta = `${APPS_SCRIPT_URL}?token=${TOKEN_SEGURIDAD}&referencia=${referencia}`;
+            
+            // Implementación de Backoff Exponencial para reintentos (si falla la red)
+            const MAX_RETRIES = 5;
+            let currentRetry = 0;
+
+            const executeFetch = async (url) => {
+                const delay = Math.pow(2, currentRetry) * 1000; // 1s, 2s, 4s, 8s, 16s...
+
+                if (currentRetry > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error("Fetch attempt failed:", error);
+                    currentRetry++;
+                    if (currentRetry < MAX_RETRIES) {
+                        console.log(`Retrying... (${currentRetry}/${MAX_RETRIES})`);
+                        return executeFetch(url); // Retry
+                    } else {
+                        throw new Error("Failed to connect to the verification server after multiple retries.");
+                    }
+                }
+            };
+
+            // Consulta al Apps Script (doGet)
+            try {
+                const data = await executeFetch(urlConsulta);
+
+                if (data && data.status === 'success') {
+                    // Pago encontrado en la hoja de cálculo
+                    goToStep('success');
+                } else {
+                    // Pago no encontrado o pendiente
+                    goToStep('failure');
+                }
+
+            } catch (error) {
+                console.error("Error grave en la verificación:", error);
+                showToast("Error de red o servidor. Intenta de nuevo más tarde.");
+                goToStep('failure'); // Volver a la pantalla de fallo
+            }
+        }
+
+        // ===============================================
+        // SISTEMA DE FUEGOS ARTIFICIALES (Canvas)
+        // ===============================================
+        const canvas = document.getElementById('fireworks-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let running = false;
+        let lastTime = 0;
+        let animationFrameId;
+
+        // Propiedades de la Partícula
+        function Particle(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.vx = (Math.random() - 0.5) * 5;
+            this.vy = (Math.random() - 0.5) * 5;
+            this.alpha = 1;
+            this.gravity = 0.08; // Efecto de gravedad
+            this.friction = 0.99; // Fricción
+            this.radius = Math.random() * 2 + 1;
+            this.color = color;
+        }
+
+        Particle.prototype.update = function(deltaTime) {
+            const dt = deltaTime / 1000; // Delta time en segundos
+            this.vy += this.gravity;
+            this.vx *= this.friction;
+            this.vy *= this.friction;
+            this.x += this.vx * dt * 60; // Ajuste por dt
+            this.y += this.vy * dt * 60; // Ajuste por dt
+            this.alpha -= 0.02 * (deltaTime / 16); // Desvanecimiento
+        };
+
+        Particle.prototype.draw = function() {
+            ctx.globalAlpha = this.alpha;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+        };
+        
+        // Genera una explosión
+        function createExplosion(x, y) {
+            const colors = ['#fde047', '#34d399', '#f87171', '#a78bfa', '#f97316'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const particleCount = 30 + Math.random() * 20;
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // Bucle principal de la animación
+        function animate(timestamp) {
+            if (!running) return;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Limpiar canvas
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.2)'; // Color de la tarjeta (para efecto de rastro)
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Actualizar y dibujar partículas
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update(deltaTime);
+                p.draw();
+
+                if (p.alpha <= 0 || p.y > canvas.height) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // Inicia el proceso de fuegos artificiales
+        function startFireworks() {
+            if (running) return;
+            running = true;
+
+            // Ajustar el tamaño del canvas al contenedor
+            const container = document.getElementById('app-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            let fireInterval;
+            
+            const launchFirework = () => {
+                if (!running) return;
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height * 0.8; // Solo en la parte superior
+                createExplosion(x, y);
+            }
+            
+            // Intervalo de lanzamiento de fuegos artificiales
+            launchFirework(); // Una explosión inicial
+            fireInterval = setInterval(launchFirework, 500); 
+
+            // Para detener el intervalo al salir del modo éxito
+            window.stopFireInterval = () => clearInterval(fireInterval);
+
+            // Iniciar el bucle de animación
+            if (!animationFrameId) {
+                lastTime = performance.now();
+                animate(lastTime);
+            }
+        }
+        
+        // Detiene los fuegos artificiales
+        function stopFireworks() {
+            running = false;
+            particles = [];
+            if (window.stopFireInterval) {
+                 window.stopFireInterval();
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            // Limpiar canvas completamente
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Manejar el redimensionamiento
+        window.addEventListener('resize', () => {
+             if (running) {
+                const container = document.getElementById('app-container');
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+            }
+        });
+
+
+        // ===============================================
+        // INICIALIZACIÓN
+        // ===============================================
+        window.onload = () => {
+             // Renderiza el primer paso
+             renderStep();
+             // Inicia la animación de entrada para el primer paso
+             const initialContent = document.getElementById('step-content');
+             if(initialContent) {
+                 initialContent.classList.add('step-in');
+             }
+        };
+    </script>
+
+</body>
+</html>

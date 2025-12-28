@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NUEVOAÑO</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&family=Permanent+Marker&family=Bangers&family=Anton&display=swap');
+        
+        :root {
+            --primary-color: #f43f5e; /* Rose 500 */
+            --secondary-color: #a855f7; /* Purple 500 */
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding-bottom: 75px; /* Espacio para el nav bar */
+            overflow-x: hidden;
+        }
+
+        .comic-font { 
+            font-family: 'Bangers', cursive; 
+            letter-spacing: 1px; 
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        .card-blur {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* COMIC HOVER ANIMATION */
+        .comic-popup {
+            font-family: 'Permanent Marker', cursive;
+            background-color: #ffeb3b; /* Amarillo brillante */
+            color: #000;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0 0 #000;
+            transform: scale(0.8) translateY(10px);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .group:hover .comic-popup {
+            opacity: 100 !important;
+            transform: scale(1) translateY(-10px); 
+        }
+
+        /* FIREWORKS CANVAS STYLING */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        /* VOGUE STYLE FOR TITLE */
+        .vogue-title {
+            font-family: 'Anton', sans-serif; /* Fuente de alto impacto */
+            font-size: clamp(3.5rem, 15vw, 6rem); /* Tamaño gigante y responsive */
+            letter-spacing: 0.5em; /* Espaciado amplio */
+            text-transform: uppercase;
+            line-height: 1.2; /* Aumento la línea para evitar solapamiento en la intro */
+            white-space: nowrap; /* Título final no se rompa */
+        }
+
+        /* Gradient Text (para la intro) */
+        .gradient-text-animated {
+            background: linear-gradient(90deg, #f97316, #fde047, #a855f7); /* Naranja, Amarillo, Púrpura */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+            /* Sombra para efecto VOGUE */
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 5px #f97316; 
+        }
+
+        /* Animación de entrada secuencial (NUEVO y AÑO) */
+        @keyframes word-fade-in {
+            0% { opacity: 0; transform: translateY(50px) scale(0.9); letter-spacing: 0.1em; }
+            100% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0.5em; }
+        }
+        .animate-nuevo {
+            animation: word-fade-in 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        .animate-año {
+            animation: word-fade-in 1s cubic-bezier(0.25, 1, 0.5, 1) 0.6s forwards;
+        }
+        
+        /* Animación de Slideshow (Título final) */
+        @keyframes slide-in-text {
+            0% { transform: translateX(-10%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        .slide-in-title {
+            animation: slide-in-text 1s ease-out forwards;
+        }
+
+
+        /* Custom Nav Bar with Gradient and Glass Effect */
+        .tab-bar {
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            height: 75px;
+            background: linear-gradient(90deg, rgba(244, 63, 94, 0.8) 0%, rgba(168, 85, 247, 0.8) 100%);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(255,255,255,0.2); 
+            display: flex;
+            justify-content: space-around; 
+            align-items: center; 
+            z-index: 500;
+        }
+        .tab-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            color: #fff; 
+            font-size: 10px; 
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+        .tab-item.active { 
+            background-color: rgba(255, 255, 255, 0.2); 
+            transform: scale(1.1);
+        }
+        .tab-item:not(.active):hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .view-content { display: none; }
+        .view-content.active { display: block; animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <!-- PARTICLE CANVAS BACKGROUND (Fuegos Artificiales) -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Splash Screen for Staged Animation -->
+    <div id="splash-screen" class="fixed inset-0 bg-black flex flex-col items-center justify-center z-[1000] opacity-100 transition-opacity duration-1000">
+        <!-- Letras con degradado que aparecen secuencialmente -->
+        <div id="word-nuevo" class="vogue-title gradient-text-animated opacity-0">NUEVO</div>
+        <div id="word-año" class="vogue-title gradient-text-animated opacity-0">AÑO</div>
+    </div>
+
+    <!-- Main Content Container (Inicialmente oculto) -->
+    <div id="main-container" class="opacity-0 transition-opacity duration-1000">
+        <div class="max-w-md mx-auto p-6 pt-12">
+            <header class="text-center mb-10 overflow-hidden">
+                <!-- Título final con estética VOGUE y animación Slideshow -->
+                <h1 id="final-title" class="vogue-title text-white slide-in-title">ザ</h1>
+                <p class="text-sm text-gray-400 mt-2">"Un año que viene y otro que se va... Vamos a divertirnos"</p>
+            </header>
+
+            <!-- MAIN VIEW (Minigame Buttons en Bento Grid) -->
+            <section id="view-main" class="view-content active">
+                <h2 class="text-xl font-bold mb-6 border-b border-gray-700 pb-2 text-gray-300">Selecciona tu Tradición</h2>
+                
+                <!-- Bento Grid 2x2 -->
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <!-- Botón 1: Hallaca (Alto) -->
+                    <div class="relative group col-span-2 sm:col-span-1 min-h-[150px] card-blur rounded-2xl shadow-xl transition duration-300 ease-in-out transform hover:scale-[1.03] hover:bg-white/20 border-l-4 border-yellow-500 flex flex-col justify-center items-center p-4">
+                        <a href="hallaca.html" class="flex flex-col items-center justify-center w-full h-full">
+                            <span class="text-5xl mb-2">🫔</span>
+                            <span class="text-lg font-bold comic-font text-yellow-300 text-center">HALLACAZO!!</span>
+                        </a>
+                        <div class="comic-popup absolute -top-4 right-0 opacity-0 p-3 text-sm rounded-lg whitespace-nowrap">
+                            El que no ponga no come, ojo pelao!!
+                        </div>
+                    </div>
+
+                    <!-- Botón 2: Viaje/Maleta (Ancho) -->
+                    <div class="relative group col-span-2 sm:col-span-1 min-h-[150px] card-blur rounded-2xl shadow-xl transition duration-300 ease-in-out transform hover:scale-[1.03] hover:bg-white/20 border-l-4 border-blue-500 flex flex-col justify-center items-center p-4">
+                        <a href="trip.html" class="flex flex-col items-center justify-center w-full h-full">
+                            <span class="text-5xl mb-2">🧳</span>
+                            <span class="text-lg font-bold comic-font text-blue-300 text-center">VIAJE</span>
+                        </a>
+                        <div class="comic-popup absolute -top-4 right-0 opacity-0 p-3 text-sm rounded-lg whitespace-nowrap">
+                            vamonos de viaje, el corazon lo puse en la maletita
+                        </div>
+                    </div>
+
+                    <!-- Botón 3: Candela/Fuego (Pequeño) -->
+                    <div class="relative group col-span-1 min-h-[100px] card-blur rounded-2xl shadow-xl transition duration-300 ease-in-out transform hover:scale-[1.03] hover:bg-white/20 border-l-4 border-red-500 flex flex-col justify-center items-center p-4">
+                        <a href="firewood.html" class="flex flex-col items-center justify-center w-full h-full">
+                            <span class="text-3xl">🔥</span>
+                            <span class="text-sm font-bold comic-font text-red-400 text-center">CANDELA</span>
+                        </a>
+                        <div class="comic-popup absolute bottom-full left-1/2 -translate-x-1/2 opacity-0 p-3 text-sm rounded-lg whitespace-nowrap">
+                            echa pa´allá, todo lo malo pa la candela
+                        </div>
+                    </div>
+
+                    <!-- Botón 4: Uvas (Pequeño) -->
+                    <div class="relative group col-span-1 min-h-[100px] card-blur rounded-2xl shadow-xl transition duration-300 ease-in-out transform hover:scale-[1.03] hover:bg-white/20 border-l-4 border-purple-500 flex flex-col justify-center items-center p-4">
+                        <a href="grape.html" class="flex flex-col items-center justify-center w-full h-full">
+                            <span class="text-3xl">🍇</span>
+                            <span class="text-sm font-bold comic-font text-purple-300 text-center">UVAS</span>
+                        </a>
+                        <div class="comic-popup absolute bottom-full left-1/2 -translate-x-1/2 opacity-0 p-3 text-sm rounded-lg whitespace-nowrap">
+                            por eso traigo 12 uvas en mis manos, una por cada deseo de este año
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PROFILE VIEW (Avatar Creator) -->
+            <section id="view-profile" class="view-content">
+                <div class="card-blur p-6 rounded-3xl text-center mb-8">
+                    <h2 class="text-2xl font-bold comic-font mb-4 text-pink-400">Epale, <input></input>!</h2>
+                    <p class="text-sm text-gray-400 mb-6">Personaliza tu personaje</p>
+                    
+                    <!-- Avatar Preview -->
+                    <div id="avatar-preview" class="w-24 h-24 mx-auto mb-6 bg-gray-700 rounded-full flex items-center justify-center relative shadow-inner overflow-hidden">
+                        <svg id="avatar-svg" viewBox="0 0 100 100" class="w-full h-full transform transition-transform duration-300" style="filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));">
+                            <!-- Cuerpo Duolingo-style -->
+                            <rect x="25" y="55" width="50" height="45" rx="10" fill="#38bdf8" />
+                            <!-- Cara -->
+                            <circle cx="50" cy="40" r="25" fill="#fef08a" />
+                            <!-- Ojos (simples) -->
+                            <circle cx="38" cy="40" r="3" fill="#000" />
+                            <circle cx="62" cy="40" r="3" fill="#000" />
+                            <!-- Pico (nariz) -->
+                            <path d="M50 48 L45 55 L55 55 Z" fill="#f97316" />
+                            <!-- Pelo/Sombrero (Placeholder) -->
+                            <rect x="25" y="20" width="50" height="15" rx="7" fill="#dc2626" />
+                        </svg>
+                    </div>
+
+                    <!-- Customization Controls (Simplificados) -->
+                    <div class="space-y-4">
+                        <label class="block text-sm text-gray-300 text-left">Color de Cuerpo</label>
+                        <input type="color" id="body-color" value="#38bdf8" oninput="updateAvatar()" class="w-full h-8 rounded-lg border-2 border-gray-600 cursor-pointer">
+                        
+                        <label class="block text-sm text-gray-300 text-left">Color de Pelo/Sombrero</label>
+                        <input type="color" id="hair-color" value="#dc2626" oninput="updateAvatar()" class="w-full h-8 rounded-lg border-2 border-gray-600 cursor-pointer">
+                    </div>
+                    
+                    <hr class="my-8 border-gray-700">
+
+                    <!-- Botón de Pago (NUEVOAÑO Pay) -->
+                    <div class="relative inline-block w-full group">
+                        <a href="pay.html" 
+                           class="inline-flex items-center justify-center w-full px-6 py-3 text-lg font-bold rounded-xl text-white bg-green-600 hover:bg-green-700 shadow-lg transition duration-300 ease-in-out transform hover:scale-[1.03] hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 comic-font">
+                            APOYA ESTE PROYECTO
+                        </a>
+
+                        <!-- Pop-up de Texto Estilo Cómic (Aparece en hover) -->
+                        <div class="comic-popup absolute bottom-full left-1/2 -translate-x-1/2 p-3 text-center rounded-lg whitespace-nowrap opacity-0 transition duration-300 ease-in-out transform">
+                            💛💪🏽🌲
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Panel de Navegación Inferior (Footer) -->
+    <nav class="tab-bar">
+        <!-- Botón Main -->
+        <div onclick="changeView('main')" class="tab-item active" id="tab-main">
+            <i class="fas fa-home text-xl mb-1"></i>
+            <span>MAIN</span>
+        </div>
+        <!-- Botón Perfil (Redirige a Pay, pero la pestaña es Profile) -->
+        <div onclick="changeView('profile')" class="tab-item" id="tab-profile">
+            <i class="fas fa-user text-xl mb-1"></i>
+            <span>PERFIL</span>
+        </div>
+    </nav>
+
+    <script>
+        // --- Core Functions ---
+        function changeView(id) {
+            document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            document.getElementById(`view-${id}`).classList.add('active');
+            document.getElementById(`tab-${id}`).classList.add('active');
+        }
+
+        // --- Avatar Logic (Duolingo-style simplified) ---
+        function updateAvatar() {
+            const bodyColor = document.getElementById('body-color').value;
+            const hairColor = document.getElementById('hair-color').value;
+            const avatarSvg = document.getElementById('avatar-svg');
+            const preview = document.getElementById('avatar-preview');
+            
+            // Apply colors to the SVG elements
+            avatarSvg.querySelector('rect:nth-child(1)').setAttribute('fill', bodyColor);
+            avatarSvg.querySelector('rect:nth-child(4)').setAttribute('fill', hairColor);
+
+            // Simple animation on change
+            preview.classList.add('animate-pop');
+            setTimeout(() => {
+                preview.classList.remove('animate-pop');
+                avatarSvg.style.transform = 'rotate(5deg)';
+                setTimeout(() => avatarSvg.style.transform = 'rotate(0deg)', 150);
+            }, 100);
+        }
+
+        // --- Fireworks Particle System ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        // Ensure canvas size is correct on load and resize
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        class FireworkParticle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8; 
+                this.vy = (Math.random() - 0.5) * 8; 
+                this.gravity = 0.05; 
+                this.friction = 0.98; 
+                this.alpha = 1;
+                this.fadeRate = Math.random() * 0.01 + 0.005; 
+                this.size = Math.random() * 2 + 1;
+                this.color = color;
+            }
+
+            update() {
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.vy += this.gravity; 
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.fadeRate;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(x, y, count = 150) {
+            const hue = Math.random() * 360;
+            const color = `hsl(${hue}, 90%, 70%)`;
+            for (let i = 0; i < count; i++) {
+                particles.push(new FireworkParticle(x, y, color));
+            }
+        }
+
+        function animateParticles() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                
+                if (particles[i].alpha <= 0 || particles[i].y > canvas.height) {
+                    particles.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+
+        function startFireworks() {
+            // Activa la explosión en el área superior central
+            createExplosion(
+                Math.random() * canvas.width * 0.6 + canvas.width * 0.2, 
+                Math.random() * canvas.height * 0.6,                     
+            );
+            // Siguiente explosión entre 1 y 3 segundos
+            setTimeout(startFireworks, Math.random() * 2000 + 1000); 
+        }
+        
+        // --- Intro Sequence Control ---
+        function startSplashAnimation() {
+            const nuevo = document.getElementById('word-nuevo');
+            const año = document.getElementById('word-año');
+            const splash = document.getElementById('splash-screen');
+            const mainContent = document.getElementById('main-container');
+
+            // 1. Animar NUEVO
+            nuevo.classList.add('animate-nuevo');
+
+            // 2. Animar AÑO después de un pequeño retraso
+            setTimeout(() => {
+                año.classList.add('animate-año');
+            }, 600); // 0.6 segundos después de que NUEVO comienza
+
+            // 3. Ocultar splash y mostrar contenido principal después de que la secuencia termine
+            setTimeout(() => {
+                // Iniciar la transición de opacidad
+                splash.style.opacity = '0';
+                mainContent.style.opacity = '1';
+                
+                // Aplicar la animación de slideshow al título final
+                document.getElementById('final-title').style.opacity = 1;
+                
+                // Eliminar la pantalla de inicio del flujo después de que se desvanezca
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                }, 1000);
+            }, 2800); // 2.8 segundos de duración total de la intro (para dar tiempo a que "AÑO" termine)
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            // Initialize view
+            changeView('main');
+            
+            // Setup canvas and start fireworks
+            resizeCanvas();
+            animateParticles();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Start the continuous fireworks loop
+            startFireworks(); 
+
+            // Start the dramatic intro animation
+            startSplashAnimation();
+        };
+    </script>
+</body>
+</html>

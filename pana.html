@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>¡Pon tu Aporte Pana!</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&family=Bangers&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0d0d0d;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .comic-font { font-family: 'Bangers', cursive; letter-spacing: 1px; }
+
+        .card-container {
+            background: #1c1917; /* Stone-900 */
+            border-radius: 1.5rem;
+            padding: 1.5rem; 
+            width: 90%; 
+            max-width: 400px;
+            border: 3px solid #fcd34d; /* Yellow-400 */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px #f59e0b;
+            position: relative; /* Necesario para que el z-index funcione */
+            z-index: 20; /* Asegura que la tarjeta esté sobre el canvas */
+        }
+        
+        .input-style {
+            transition: all 0.3s;
+            background-color: #000;
+            border: 1px solid #444;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+        }
+        .input-style:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.5);
+        }
+
+        #toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: #a855f7; padding: 12px 24px; border-radius: 50px;
+            font-size: 14px; font-weight: bold; transition: transform 0.4s; z-index: 1100;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Estilo del botón con gradiente dinámico y hover */
+        .dynamic-gradient-btn {
+            background-image: linear-gradient(90deg, #a855f7 0%, #f43f5e 50%, #f97316 100%);
+            background-size: 200% auto;
+            color: white;
+            transition: all 0.5s ease-in-out;
+        }
+        .dynamic-gradient-btn:hover {
+            background-position: right center; /* Mueve el gradiente en el hover */
+            box-shadow: 0 0 20px #f43f5e;
+            transform: scale(1.03);
+        }
+
+        /* FIREWORKS CANVAS STYLING (Nuevo) */
+        #fireworks-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10; /* Debajo de la tarjeta principal */
+            pointer-events: none; /* Permite clics a través del canvas */
+        }
+    </style>
+</head>
+<body>
+    <!-- CANVAS PARA FUEGOS ARTIFICIALES -->
+    <canvas id="fireworks-canvas"></canvas>
+
+    <div id="toast"></div>
+
+    <div id="app-container" class="card-container text-center">
+        <h1 class="text-4xl font-black mb-2 text-yellow-400 comic-font">¡Hallacazo! 🫔</h1>
+        <p class="text-sm text-gray-300 mb-6">Un aporte del Pana para el guiso.</p>
+
+        <div id="form-content" class="space-y-4">
+            <input type="text" id="input-donor" placeholder="Tu nombre / Alias (El Pana)" 
+                   class="w-full input-style p-3 rounded-xl text-sm outline-none">
+            
+            <select id="input-ingredient" class="w-full input-style p-3 rounded-xl text-sm outline-none appearance-none">
+                <option value="" disabled selected>Selecciona tu contribución...</option>
+                <option value="Hojas">Hojas 🌿</option>
+                <option value="Masa">Masa (Harina PAN) 🍚</option>
+                <option value="Guiso">Guiso (Carne/Pollo) 🥩</option>
+                <option value="Aliños">Aliños (Aceitunas/Alcaparras) 🌶️</option>
+                <option value="Aporte">Aporte (Colaboración General) 💰</option>
+            </select>
+
+            <textarea id="input-note" placeholder="Un mensaje o nota (ej. 'Recién molida y suavecita')" 
+                      class="w-full input-style p-3 rounded-xl text-sm outline-none h-20 resize-none"></textarea>
+            
+            <button onclick="saveContribution()" id="save-btn"
+                    class="w-full mt-6 bg-yellow-600 hover:bg-yellow-500 p-3 rounded-xl font-black comic-font uppercase text-black active:scale-95 transition-transform shadow-lg shadow-yellow-800/50">
+                ¡PONER MI APORTE!
+            </button>
+        </div>
+
+        <!-- Nueva sección de éxito y redirección (inicialmente oculta) -->
+        <div id="success-message-dynamic" class="hidden mt-8">
+            <i class="fas fa-check-circle text-6xl text-green-500 mb-4 animate-pulse"></i>
+            <h2 class="text-2xl font-bold text-white comic-font">¡Aporte Registrado!</h2>
+            <p class="text-gray-400 mt-2">Tu Hallaca está lista para cocinar. ¡Gracias por participar!</p>
+            
+            <hr class="border-gray-700 my-6">
+
+            <p class="text-sm font-semibold text-white mb-4">
+                ¿Te gustó la onda colaborativa, Pana? ¿Quieres montar tu propia Hallaca (App) para tu familia? 😉
+            </p>
+
+            <a href="http://geijutsunoseishin-cell.github.io/nueva-o/index.html" target="_top" id="redirect-btn"
+               class="dynamic-gradient-btn w-full block mt-4 p-4 rounded-xl font-black comic-font uppercase text-white shadow-lg active:scale-90 transition-all duration-300">
+                <i class="fas fa-magic mr-2"></i> ¡QUIERO MI PROPIA APP DE AÑO NUEVO!
+            </a>
+            
+            <p class="text-[9px] text-gray-500 mt-4">Serás redirigido a una aplicación externa.</p>
+        </div>
+        <!-- Fin de la nueva sección -->
+
+        <p id="app-id-display" class="text-[8px] text-gray-600 mt-8 break-all">App ID: Cargando...</p>
+    </div>
+
+    <script type="module">
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL VARIABLES ---
+        let db;
+        let auth;
+        let userId = 'anonymous';
+        let isAuthReady = false;
+        let appId = null;
+
+        // --- UTILITIES ---
+        function getAppIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('appId');
+        }
+
+        function showToast(message, duration = 3000, bgColor = 'bg-yellow-600') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `show ${bgColor}`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // --- FIREBASE SETUP ---
+        async function initializeFirebase() {
+            try {
+                // Obtener appId de la URL (si es un link compartido) o usar el ID global (si se está previsualizando)
+                appId = getAppIdFromUrl();
+                if (!appId) {
+                    // Fallback: usar el ID del Canvas si no se encuentra en la URL
+                    if (typeof __app_id !== 'undefined') {
+                        appId = __app_id;
+                    } else {
+                        throw new Error("ID de aplicación (appId) no encontrado en el URL. No se puede guardar el aporte.");
+                    }
+                }
+
+                document.getElementById('app-id-display').textContent = `App ID: ${appId}`;
+
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Configuración de Firebase no válida.");
+                }
+                
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // For a shared link, we sign in anonymously as we don't know the host's token.
+                await signInAnonymously(auth);
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log(`Pana logueado anónimamente con UID: ${userId}`);
+                        showToast("Conexión lista. ¡A la Hallaca!", 2000);
+                    } else {
+                        isAuthReady = false;
+                        showToast("Error de Autenticación", 5000, 'bg-red-600');
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error durante Firebase initialization:", error);
+                document.getElementById('form-content').innerHTML = `
+                    <p class="text-red-400 text-sm">Error: ${error.message}. Asegúrate de usar el link completo compartido por el Host.</p>
+                `;
+            }
+        }
+
+        // --- PARTICLE SYSTEM LOGIC (Nuevo) ---
+        const particleCanvas = document.getElementById('fireworks-canvas');
+        const pCtx = particleCanvas.getContext('2d');
+        let particles = [];
+        let animationFrameId = null;
+
+        function resizeCanvas() {
+            particleCanvas.width = window.innerWidth;
+            particleCanvas.height = window.innerHeight;
+        }
+
+        class FireworkParticle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8; 
+                this.vy = (Math.random() - 0.5) * 8; 
+                this.gravity = 0.05; 
+                this.friction = 0.98; 
+                this.alpha = 1;
+                this.fadeRate = Math.random() * 0.01 + 0.005; 
+                this.size = Math.random() * 2 + 1;
+                this.color = color;
+            }
+
+            update() {
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.vy += this.gravity; 
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.fadeRate;
+            }
+
+            draw() {
+                pCtx.save();
+                pCtx.globalAlpha = this.alpha;
+                pCtx.fillStyle = this.color;
+                pCtx.beginPath();
+                pCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                pCtx.fill();
+                pCtx.restore();
+            }
+        }
+
+        function createExplosion(x, y, count = 150) {
+            const hue = Math.random() * 360;
+            const color = `hsl(${hue}, 90%, 70%)`;
+            for (let i = 0; i < count; i++) {
+                particles.push(new FireworkParticle(x, y, color));
+            }
+        }
+
+        function animateParticles() {
+            // Limpia el canvas con una ligera transparencia para el efecto de estela
+            pCtx.fillStyle = 'rgba(13, 13, 13, 0.2)'; // Color de fondo del body
+            pCtx.fillRect(0, 0, particleCanvas.width, particleCanvas.height);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            
+            if (particles.length > 0) {
+                animationFrameId = requestAnimationFrame(animateParticles);
+            } else {
+                animationFrameId = null;
+                // Opcional: limpiar el canvas completamente al terminar
+                pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+            }
+        }
+
+        // --- SAVE CONTRIBUTION ---
+        window.saveContribution = async function() {
+            if (!isAuthReady) {
+                showToast("Espera... La conexión no está lista. Intenta de nuevo.", 3000, 'bg-red-600');
+                return;
+            }
+
+            const donor = document.getElementById('input-donor').value.trim();
+            const ingredient = document.getElementById('input-ingredient').value;
+            const note = document.getElementById('input-note').value.trim();
+
+            if (!donor || !ingredient) {
+                showToast("Faltan campos obligatorios (Nombre y Contribución).", 3000, 'bg-red-600');
+                return;
+            }
+            
+            // PATH: /artifacts/{appId}/public/data/hallacaContributions
+            const collectionPath = `artifacts/${appId}/public/data/hallacaContributions`;
+            
+            const newContribution = {
+                donor: donor,
+                ingredient: ingredient,
+                note: note || `Un aporte de ${ingredient} anónimo`,
+                contributorId: userId,
+                timestamp: serverTimestamp()
+            };
+
+            try {
+                document.getElementById('save-btn').textContent = "Guardando...";
+                document.getElementById('save-btn').disabled = true;
+
+                await addDoc(collection(db, collectionPath), newContribution);
+
+                // Ocultar formulario y mostrar mensaje de éxito dinámico
+                document.getElementById('form-content').classList.add('hidden');
+                document.getElementById('success-message-dynamic').classList.remove('hidden');
+                showToast(`¡Aporte de ${ingredient} guardado!`, 3000, 'bg-green-600');
+                
+                // --- INICIAR FUEGOS ARTIFICIALES EN EL ÉXITO ---
+                const container = document.getElementById('app-container');
+                const rect = container.getBoundingClientRect();
+                // Crea la explosión centrada en la tarjeta
+                createExplosion(rect.left + rect.width / 2, rect.top + rect.height / 2, 150);
+                
+                // Inicia el loop de animación si no está corriendo
+                if (!animationFrameId) {
+                    animateParticles(); 
+                }
+                // ------------------------------------------------
+
+            } catch (error) {
+                console.error("Error al guardar el ingrediente:", error);
+                showToast(`Error al guardar: ${error.message}. Verifica las reglas de Firebase.`, 7000, 'bg-red-700');
+                document.getElementById('save-btn').textContent = "Error, intenta de nuevo";
+                document.getElementById('save-btn').disabled = false;
+            }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            initializeFirebase();
+            // Inicializar el canvas y manejar el redimensionamiento
+            resizeCanvas(); 
+            window.addEventListener('resize', resizeCanvas);
+        }
+    </script>
+</body>
+</html>
