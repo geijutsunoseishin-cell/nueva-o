@@ -30,13 +30,18 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
         }
 
+        /* ESTILO PARA LAS TARJETAS DE APORTES (BENTO GRID) */
         .ingredient-card {
             background: #0f172a; /* Slate-900 */
-            border-left: 4px solid #f59e0b; /* Amber-500 */
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            /* Las rotaciones y bordes de color se aplican en el JS con Tailwind */
         }
         
         .ingredient-list {
-            max-height: 400px;
+            /* Se mantiene el max-height y scroll para cuando el grid es grande */
+            max-height: 500px;
             overflow-y: auto;
             scrollbar-width: thin; /* Firefox */
         }
@@ -75,6 +80,20 @@
             z-index: 1000;
             opacity: 1;
             transition: opacity 0.5s ease-out;
+        }
+        
+        /* ESTILO PARA PASOS DEL TUTORIAL */
+        .tutorial-step {
+            background: #1e293b;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+            height: 100%; 
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+        }
+        .tutorial-step:hover {
+            transform: translateY(-2px);
         }
 
         /* Modal Styles */
@@ -162,7 +181,6 @@
     <script type="module">
         // =========================================================================
         // --- CONFIGURACIÓN DE FIREBASE (INCLUYE CLAVES DEL USUARIO) ---
-        // ESTA CONFIGURACIÓN SE USA SI EL CÓDIGO SE EJECUTA FUERA DEL ENTORNO CANVAS.
         // =========================================================================
         const FIREBASE_CONFIG_PLACEHOLDER = { 
             apiKey: "AIzaSyDFqK4T7TuIx-uUgJeFmx5Km7G01FwizpA",
@@ -174,11 +192,9 @@
             measurementId: "G-NS6BNHSSYX"
         }; 
 
-        // El ID por defecto se usa si el host abre hallaca.html sin parámetros en la URL.
         const EXTERNAL_APP_ID_PLACEHOLDER = "hallaca-collab-default";
 
         // --- FIREBASE IMPORTS ---
-        // CAMBIO 1: Se añade 'signOut' a la lista de importaciones.
         import { 
             initializeApp 
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -187,7 +203,7 @@
             signInWithCustomToken, 
             signInAnonymously, 
             onAuthStateChanged,
-            signOut // <--- ¡AQUÍ ESTÁ EL CAMBIO!
+            signOut 
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { 
             getFirestore, 
@@ -211,7 +227,7 @@
             isAuthReady: false,
             hallacaStatus: 'EN PROCESO', // EN PROCESO | LISTA
             ingredients: [], // Aportes de los panas
-            hostIngredients: [], // Lista de ingredientes que el host necesita (para pana.html)
+            hostIngredients: [], // Lista de ingredientes que el host necesita 
             userData: null, // Datos del usuario (host)
             unsubscribeIngredients: null, // Listener de aportes de ingredientes
             unsubscribeUserData: null, // Listener de datos del host
@@ -257,7 +273,7 @@
         }
 
         function showModal(title, message, actionText, actionCallback, actionBgColor = 'bg-red-600 hover:bg-red-700') {
-            // Lógica del modal (igual que antes)
+            // ... (Lógica de Modal)
             const overlay = document.getElementById('modal-overlay');
             const titleEl = document.getElementById('modal-title');
             const messageEl = document.getElementById('modal-message');
@@ -286,7 +302,6 @@
             if (overlay) overlay.style.display = 'none';
         }
         
-        // Modal para añadir ingredientes
         window.showAddIngredientModal = function() {
             document.getElementById('add-ingredient-modal-overlay').style.display = 'flex';
             document.getElementById('new-ingredient-name').value = '';
@@ -297,7 +312,7 @@
             document.getElementById('add-ingredient-modal-overlay').style.display = 'none';
         }
 
-        // Lógica de partículas (igual que antes)
+        // --- LÓGICA DE PARTÍCULAS ---
         const particleCanvas = document.getElementById('particle-canvas');
         let pCtx;
         let particles = [];
@@ -316,7 +331,7 @@
             particleCanvas.height = window.innerHeight;
         }
 
-        class Particle { /* ... (Lógica de Particle es la misma) ... */
+        class Particle { 
             constructor(x, y, color) {
                 this.x = x;
                 this.y = y;
@@ -390,7 +405,6 @@
         }
         
         function copyToClipboard(text) {
-            // Lógica de copiado al portapapeles (igual que antes)
             const textarea = document.createElement('textarea');
             textarea.value = text;
             textarea.style.position = 'fixed'; 
@@ -417,10 +431,8 @@
             }
         }
 
-
         // --- FIREBASE SETUP ---
         async function initializeFirebase() {
-            // Lógica de inicialización (igual que antes)
             try {
                 state.appId = getAppId();
                 let firebaseConfig;
@@ -447,12 +459,11 @@
                 if (state.isCanvasEnvironment && typeof __initial_auth_token !== 'undefined') {
                     await signInWithCustomToken(state.auth, __initial_auth_token);
                 } else {
-                    // CAMBIO 2: Forzar cierre de sesión para generar un nuevo usuario anónimo en cada recarga.
+                    // Cierre de sesión forzado para garantizar nuevo usuario anónimo en cada recarga
                     try {
                         await signOut(state.auth);
                         console.log("Sesión anónima anterior cerrada.");
                     } catch (e) {
-                        // Es normal que falle si no hay sesión iniciada, ignoramos el error.
                         console.log("No había sesión activa para cerrar. Iniciando nueva...");
                     }
                     await signInAnonymously(state.auth);
@@ -462,6 +473,7 @@
                     if (user) {
                         state.userId = user.uid;
                         state.isAuthReady = true;
+                        // Llamar a setupFirestoreListeners DESPUÉS de tener el userId
                         setupFirestoreListeners();
                         console.log(`Usuario autenticado (Host): ${state.userId}`);
                         renderApp(); 
@@ -482,55 +494,30 @@
             }
         }
 
-        // --- FIRESTORE LISTENERS ---
+        // --- FIREBASE LISTENERS ---
+        
+        /**
+         * FUNCIÓN: Gestiona la escucha de aportes de ingredientes
+         */
+        function setupIngredientsListener(batchId) {
+            // 1. Limpiar el listener anterior
+            if (state.unsubscribeIngredients) {
+                state.unsubscribeIngredients();
+                state.unsubscribeIngredients = null;
+            }
 
-        function setupFirestoreListeners() {
-            if (!state.isAuthReady || !state.userId) return;
-
-            // 1. Host Data Listener (Privado) - Actualizado para cargar hostIngredients
-            const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
-            
-            if (state.unsubscribeUserData) state.unsubscribeUserData();
-
-            state.unsubscribeUserData = onSnapshot(hostDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    state.userData = docSnap.data();
-                    state.hallacaStatus = state.userData.status || 'EN PROCESO';
-                    state.currentBatchId = state.userData.currentBatchId;
-                    // ** NUEVO: Cargar lista de ingredientes del Host **
-                    state.hostIngredients = state.userData.ingredientsList || BASE_INGREDIENTS;
-                    renderApp(); 
-                } else {
-                    state.userData = null;
-                    state.currentBatchId = null;
-                    state.hostIngredients = []; // Limpiar lista de host
-                    if (state.unsubscribeIngredients) {
-                        state.unsubscribeIngredients();
-                        state.unsubscribeIngredients = null;
-                    }
-                    state.ingredients = [];
-                    renderApp();
-                }
-            }, (error) => {
-                console.error("Error al escuchar datos del host:", error);
-                showToast("Error de datos de Hallaca. Recarga la página.", 5000, 'bg-red-700');
-            });
-
-
-            // 2. Ingredients Listener (Público, para aportes) - Lógica igual que antes
-            const batchToListen = state.currentBatchId;
-            if (batchToListen) {
+            if (batchId) {
                 const ingredientsColRef = collection(state.db, `artifacts/${state.appId}/public/data/${PUBLIC_COLLECTION}`);
-                const q = query(ingredientsColRef, where("batchId", "==", batchToListen));
+                const q = query(ingredientsColRef, where("batchId", "==", batchId));
                 
-                if (state.unsubscribeIngredients) state.unsubscribeIngredients();
-
                 state.unsubscribeIngredients = onSnapshot(q, (snapshot) => {
+                    // El listener se activó y trae datos
                     state.ingredients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                                                    .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)); 
 
-                    renderIngredientsList(); // Aportes
-                    renderHostIngredientsList(); // Lista de Host (para que se actualicen las marcas)
+                    // Llamar a los renders de lista aquí para que se actualicen inmediatamente
+                    renderIngredientsList(); 
+                    renderHostIngredientsList(); 
 
                     if (state.hallacaStatus === 'LISTA') {
                         startCelebration();
@@ -540,36 +527,68 @@
                     showToast("Error de datos públicos. Recarga la página.", 5000, 'bg-red-700');
                 });
             } else {
-                 if (state.unsubscribeIngredients) state.unsubscribeIngredients();
+                 // Si no hay batchId, limpiar la lista
                  state.ingredients = [];
-                 renderIngredientsList();
+                 renderIngredientsList(); // Mostrará "¡Aún no hay aportes!"
             }
+        }
+
+
+        function setupFirestoreListeners() {
+            if (!state.isAuthReady || !state.userId) return;
+
+            // 1. Host Data Listener (Privado) - Obtiene el currentBatchId
+            const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
+            
+            if (state.unsubscribeUserData) state.unsubscribeUserData();
+
+            state.unsubscribeUserData = onSnapshot(hostDocRef, (docSnap) => {
+                const oldBatchId = state.currentBatchId;
+                
+                if (docSnap.exists()) {
+                    state.userData = docSnap.data();
+                    state.hallacaStatus = state.userData.status || 'EN PROCESO';
+                    state.currentBatchId = state.userData.currentBatchId;
+                    state.hostIngredients = state.userData.ingredientsList || BASE_INGREDIENTS;
+                    
+                    // LLAMADA CRUCIAL: Si el ID del lote cambió, re-iniciar el listener de aportes
+                    if (state.currentBatchId !== oldBatchId) {
+                        setupIngredientsListener(state.currentBatchId);
+                    }
+                    
+                    renderApp(); 
+                } else {
+                    // Si el documento no existe (borrado o primera vez)
+                    state.userData = null;
+                    state.currentBatchId = null;
+                    state.hostIngredients = [];
+                    setupIngredientsListener(null); // Desactivar listener de aportes
+                    renderApp();
+                }
+            }, (error) => {
+                console.error("Error al escuchar datos del host:", error);
+                showToast("Error de datos de Hallaca. Recarga la página.", 5000, 'bg-red-700');
+            });
         }
 
 
         // --- FIREBASE ACTIONS ---
 
-        // Inicia un nuevo lote de hallacas (sobrescribe el anterior si existe)
         window.startNewBatch = async function() {
-            if (!state.isAuthReady || !state.userId) return;
-
+            if (!state.isAuthReady) return;
             const newBatchId = crypto.randomUUID();
             const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
             
             try {
-                // ** NUEVO: Guardar la lista de ingredientes base **
                 await setDoc(hostDocRef, {
                     currentBatchId: newBatchId,
                     status: 'EN PROCESO',
                     createdAt: serverTimestamp(),
                     hostUserId: state.userId,
                     appId: state.appId,
-                    ingredientsList: BASE_INGREDIENTS // Guarda la lista inicial
+                    ingredientsList: BASE_INGREDIENTS 
                 }, { merge: false });
 
-                state.hallacaStatus = 'EN PROCESO';
-                state.currentBatchId = newBatchId;
-                state.hostIngredients = BASE_INGREDIENTS;
                 showToast("¡Nuevo Hallacazo iniciado con ingredientes base!", 3000, 'bg-blue-600');
 
             } catch (error) {
@@ -578,7 +597,6 @@
             }
         }
         
-        // ** NUEVO: Agregar un ingrediente a la lista del Host **
         window.addNewIngredient = async function() {
             if (!state.isAuthReady || !state.userId || !state.currentBatchId) return;
             
@@ -590,7 +608,6 @@
             
             hideAddIngredientModal();
             
-            // Normalizar el nombre (capitalizar)
             const normalizedName = newIngredientName.charAt(0).toUpperCase() + newIngredientName.slice(1).toLowerCase();
 
             if (state.hostIngredients.includes(normalizedName)) {
@@ -604,14 +621,12 @@
                 const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
                 await setDoc(hostDocRef, { ingredientsList: newIngredientsList }, { merge: true });
                 showToast(`Ingrediente '${normalizedName}' añadido.`, 3000, 'bg-indigo-600');
-                // La actualización de state.hostIngredients se maneja por el onSnapshot
             } catch (error) {
                 console.error("Error al añadir ingrediente:", error);
                 showToast(`Error al añadir: ${error.message}`, 5000, 'bg-red-700');
             }
         }
 
-        // ** NUEVO: Eliminar un ingrediente de la lista del Host **
         window.removeHostIngredient = async function(ingredientToRemove) {
             if (!state.isAuthReady || !state.userId || !state.currentBatchId) return;
 
@@ -627,21 +642,12 @@
             }
         }
 
-        // ** FUNCIÓN DE BORRADO TOTAL DE PROGRESO ** (Igual que antes)
         window.deleteHostData = async function() {
             if (!state.isAuthReady || !state.userId) return;
 
             const hostDocRef = doc(state.db, `artifacts/${state.appId}/users/${state.userId}/${HOST_COLLECTION}/${HOST_DOC}`);
             
             try {
-                if (state.unsubscribeIngredients) {
-                    state.unsubscribeIngredients();
-                    state.unsubscribeIngredients = null;
-                }
-                state.ingredients = []; 
-                state.hostIngredients = []; // Limpiar lista de host
-                state.currentBatchId = null; 
-
                 await deleteDoc(hostDocRef);
                 showToast("Progreso de Hallacazo eliminado. ¡Listo para empezar de cero!", 5000, 'bg-red-600');
             } catch (error) {
@@ -650,7 +656,6 @@
             }
         }
 
-        // Marca el lote actual de hallacas como LISTO (Igual que antes)
         window.markHallacaReady = async function() {
             if (!state.isAuthReady || !state.userId || !state.currentBatchId) return;
 
@@ -658,10 +663,8 @@
             
             try {
                 await setDoc(hostDocRef, { status: 'LISTA' }, { merge: true });
-                state.hallacaStatus = 'LISTA';
                 startCelebration(); 
                 showToast("¡HALLACA LISTA! A disfrutar, Panas.", 5000, 'bg-pink-600');
-                renderApp();
 
             } catch (error) {
                 console.error("Error al marcar como LISTA:", error);
@@ -671,17 +674,15 @@
         
         // --- RENDERING FUNCTIONS ---
 
-        // ** NUEVO: Renderiza la lista de ingredientes que el host requiere **
         function renderHostIngredientsList() {
              const listEl = document.getElementById('host-ingredients-list');
              if (!listEl) return;
              
-             if (state.hostIngredients.length === 0) {
+             if (state.hostIngredients.length === 0 && state.currentBatchId) {
                  listEl.innerHTML = `<p class="text-center text-gray-500 py-4">No has añadido ingredientes. ¡Añade con el botón de abajo!</p>`;
                  return;
              }
              
-             // Identificar qué ingredientes ya fueron aportados
              const contributedIngredients = new Set(state.ingredients.map(i => i.ingredient));
 
              const html = state.hostIngredients.map(ing => {
@@ -710,41 +711,65 @@
              listEl.innerHTML = html;
         }
 
-
+        /**
+         * FUNCIÓN MODIFICADA: Renderiza los aportes en formato "Bento Grid".
+         */
         function renderIngredientsList() {
-            // Renderiza la lista de APORTES recibidos (igual que antes)
             const listEl = document.getElementById('ingredients-list');
             if (!listEl) return;
 
-            if (state.ingredients.length === 0) {
-                listEl.innerHTML = `<p class="text-center text-gray-500 py-8">¡Aún no hay aportes! Comparte el link.</p>`;
+            if (state.currentBatchId && state.ingredients.length === 0) {
+                 listEl.innerHTML = `<p class="text-center text-gray-500 py-8">¡Aún no hay aportes! Comparte el link.</p>`;
+                 return;
+            } else if (!state.currentBatchId) {
+                listEl.innerHTML = `<p class="text-center text-gray-500 py-8">Inicia un nuevo lote para recibir aportes.</p>`;
                 return;
             }
 
             const total = state.ingredients.length;
             const uniqueContributors = new Set(state.ingredients.map(i => i.donor)).size;
             
+            // Header con estadísticas
             let html = `<div class="p-3 bg-gray-900 rounded-lg mb-4 flex justify-between text-sm font-semibold">
                             <span>Total Aportes: ${total}</span>
                             <span>Panas Colaborando: ${uniqueContributors}</span>
                         </div>`;
 
-            html += state.ingredients.map(ing => {
+            // INICIO DEL BENTO GRID
+            html += `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">`; 
+
+            // Función para determinar una clase de estilo 'pseudo-aleatoria' para el efecto bento
+            const getBentoStyle = (index) => {
+                // Rotación ligera para el efecto "desordenado"
+                const rotation = (index % 5) - 2; // Valores: -2, -1, 0, 1, 2
+                const colors = ['border-yellow-500', 'border-red-500', 'border-green-500', 'border-indigo-500'];
+                const randomColor = colors[index % colors.length]; // Usa módulo para color cíclico
+                
+                return `transform rotate-[${rotation}deg] shadow-xl hover:rotate-0 hover:scale-[1.02] transition-all duration-300 border-2 ${randomColor}`;
+            }
+
+            // Mapear los ingredientes a tarjetas individuales (Bento Cards)
+            html += state.ingredients.map((ing, index) => {
                 const date = ing.timestamp ? new Date(ing.timestamp.seconds * 1000).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : 'Ahora';
                 const emoji = EMOJIS[ing.ingredient] || '❓';
+                const style = getBentoStyle(index);
+                
                 return `
-                    <div class="ingredient-card p-3 my-2 rounded-lg flex justify-between items-start">
-                        <div class="flex-1">
-                            <p class="font-bold text-base text-white">${emoji} ${ing.ingredient}</p>
-                            <p class="text-xs text-gray-400 mt-1">${ing.note || 'Sin nota.'}</p>
+                    <div class="ingredient-card ${style}">
+                        <div class="flex items-center mb-2">
+                            <span class="text-3xl mr-3">${emoji}</span>
+                            <p class="font-extrabold text-lg text-white comic-font">${ing.ingredient}</p>
                         </div>
-                        <div class="text-right ml-4">
-                            <p class="text-sm font-semibold text-yellow-500">${ing.donor}</p>
-                            <p class="text-[10px] text-gray-500 mt-1">${date}</p>
+                        <p class="text-sm font-semibold text-yellow-400 mb-2 truncate">Aportado por: ${ing.donor}</p>
+                        <p class="text-xs text-gray-400 italic mt-1 break-words line-clamp-3">${ing.note || 'Sin nota de Panita.'}</p>
+                        <div class="text-right mt-3 pt-2 border-t border-gray-700">
+                            <p class="text-[10px] text-gray-500">${date}</p>
                         </div>
                     </div>
                 `;
             }).join('');
+            
+            html += `</div>`; // Cierre del grid
 
             listEl.innerHTML = html;
         }
@@ -755,24 +780,44 @@
             let content = '';
 
             if (!state.isAuthReady) {
-                content = `<div class="text-center p-10 mt-10 hallaca-wrapper">
-                            <i class="fas fa-key fa-spin text-4xl text-yellow-500 mb-4"></i>
-                            <h2 class="text-2xl font-bold comic-font text-white">AUTENTICANDO AL HOST...</h2>
-                            <p class="text-gray-400 mt-2">Esperando la conexión segura. Esto puede tardar unos segundos.</p>
-                        </div>`;
+                content = `
+                    <div class="text-center p-10 mt-10 hallaca-wrapper">
+                        <i class="fas fa-key fa-spin text-4xl text-yellow-500 mb-4"></i>
+                        <h2 class="text-2xl font-bold comic-font text-white">AUTENTICANDO AL HOST...</h2>
+                        <p class="text-gray-400 mt-2">Esperando la conexión segura. Esto puede tardar unos segundos.</p>
+                    </div>`;
             } else if (!state.currentBatchId) {
-                // Vista inicial: Iniciar nuevo batch
+                // Vista inicial: Iniciar nuevo batch + TUTORIAL
                 content = `
                     <div class="text-center p-8 mt-10 hallaca-wrapper">
                         <h1 class="text-4xl font-bold logo-font text-yellow-500 mb-2">¡Bienvenido al Hallacazo!</h1>
                         <p class="text-gray-300 mb-8">Esta es tu central de mando. Empecemos a cocinar.</p>
                         
-                        <button onclick="startNewBatch()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-full w-full comic-font text-xl transition-all shadow-lg shadow-indigo-500/50 active:scale-95">
+                        <button onclick="startNewBatch()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-full w-full comic-font text-xl transition-all shadow-lg shadow-indigo-500/50 active:scale-95 mb-10">
                             <i class="fas fa-play-circle mr-2"></i> INICIAR NUEVO LOTE DE HALLACAS
                         </button>
 
-                        <p class="text-xs text-gray-500 mt-4">Un lote (batch) es una sesión única de recolección de ingredientes.</p>
-                        <p class="text-[10px] text-gray-600 mt-2">ID de Usuario (Para Debug/Soporte): ${state.userId}</p>
+                        <h2 class="text-2xl font-bold comic-font text-red-400 mb-4 border-b pb-2 border-gray-700 w-fit mx-auto">Guía Rápida del Host</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                            <div class="tutorial-step">
+                                <i class="fas fa-play-circle text-3xl text-yellow-500 mb-2"></i>
+                                <h3 class="font-bold text-lg text-white">Paso 1: Iniciar Lote</h3>
+                                <p class="text-sm text-gray-400 mt-1">Presiona el botón "INICIAR NUEVO LOTE" para crear una sesión de Hallacazo única.</p>
+                            </div>
+                            <div class="tutorial-step">
+                                <i class="fas fa-share-alt text-3xl text-yellow-500 mb-2"></i>
+                                <h3 class="font-bold text-lg text-white">Paso 2: Compartir Link</h3>
+                                <p class="text-sm text-gray-400 mt-1">Una vez iniciado, copia el "Link Pana" y envíalo a tus colaboradores. ¡Ellos harán sus aportes por allí!</p>
+                            </div>
+                            <div class="tutorial-step">
+                                <i class="fas fa-eye text-3xl text-yellow-500 mb-2"></i>
+                                <h3 class="font-bold text-lg text-white">Paso 3: Monitorear</h3>
+                                <p class="text-sm text-gray-400 mt-1">Observa los aportes en tiempo real en esta pantalla. Agrega ingredientes a tu lista si te falta algo.</p>
+                            </div>
+                            <div class="tutorial-step md:col-span-3 text-center">
+                                <p class="text-xs text-gray-500 mt-4">ID de Host (Para Soporte): ${state.userId}</p>
+                            </div>
+                        </div>
                     </div>
                 `;
             } else {
@@ -792,7 +837,7 @@
                         </div>
                         
                         <h2 class="text-xl font-bold comic-font text-indigo-300 mb-3 flex items-center">
-                            <i class="fas fa-list-alt mr-2"></i> Ingredientes Solicitados (Host)
+                            <i class="fas fa-list-alt mr-2"></i> Lista de Compras (Requeridos)
                         </h2>
                         <div id="host-ingredients-list" class="mb-4">
                             </div>
@@ -810,7 +855,7 @@
                                     <i class="fas fa-copy"></i> Copiar Link Pana
                                 </button>
                             </div>
-                            <p class="text-[10px] text-gray-500 mt-2">Los Panas verán la lista de ingredientes que acabas de definir.</p>
+                            <p class="text-[10px] text-gray-500 mt-2">Envía este link para que te ayuden con los ingredientes.</p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 mb-8">
@@ -836,13 +881,13 @@
             }
 
             appEl.innerHTML = content;
-            // Asegurarse de renderizar la lista del Host también en la vista de Hallaca en Curso
+            // Asegurarse de renderizar las listas después de que el HTML existe
             if (state.currentBatchId) {
                 renderHostIngredientsList();
+                renderIngredientsList(); 
             }
         }
         
-        // Función auxiliar para copiar el link
         window.copyShareLink = function(link) {
             if (copyToClipboard(link)) {
                 showToast('¡Link copiado!', 3000, 'bg-green-600');
